@@ -271,9 +271,7 @@ int inv_icm42600_gyro_write_scale(struct inv_icm42600_state *st,
 }
 
 /* IIO format int + micro */
-#define INV_ICM42600_GYRO_ODR_LEN 16
-
-const int inv_icm42600_gyro_odr[INV_ICM42600_GYRO_ODR_LEN] = {
+const int inv_icm42600_gyro_odr[] = {
 	/* 12.5Hz */
 	12, 500000,
 	/* 25Hz */
@@ -292,9 +290,7 @@ const int inv_icm42600_gyro_odr[INV_ICM42600_GYRO_ODR_LEN] = {
 	4000, 0,
 };
 
-#define INV_ICM42600_GYRO_ODR_CONV_LEN 8
-
-const int inv_icm42600_gyro_odr_conv[INV_ICM42600_GYRO_ODR_CONV_LEN] = {
+const int inv_icm42600_gyro_odr_conv[] = {
 	INV_ICM42600_ODR_12_5HZ,
 	INV_ICM42600_ODR_25HZ,
 	INV_ICM42600_ODR_50HZ,
@@ -372,9 +368,7 @@ out_unlock:
  * Calibration bias values, IIO range format int + nano.
  * Value is limited to +/-64dps coded on 12 bits signed. Step is 1/32 dps.
  */
-#define INV_ICM42600_GYRO_CALIBBIAS_LEN 6
-
-const int inv_icm42600_gyro_calibbias[INV_ICM42600_GYRO_CALIBBIAS_LEN] = {
+const int inv_icm42600_gyro_calibbias[] = {
 	-1, 117010721,		/* min: -1.117010721 rad/s */
 	0, 545415,		/* step: 0.000545415 rad/s */
 	1, 116465306,		/* max: 1.116465306 rad/s */
