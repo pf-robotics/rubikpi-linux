@@ -136,8 +136,6 @@ struct inv_icm42600_suspended {
  *  @orientation:	sensor chip orientation relative to main hardware.
  *  @conf:		chip sensors configurations.
  *  @suspended:		suspended sensors configuration.
- *  @indio_gyro:	gyroscope IIO device (for backward compatibility).
- *  @indio_accel:	accelerometer IIO device (for backward compatibility).
  *  @indio_dev:		unified IMU IIO device.
  *  @buffer:		data transfer buffer aligned for DMA.
  *  @fifo:		FIFO management structure.
@@ -153,8 +151,6 @@ struct inv_icm42600_state {
 	struct iio_mount_matrix orientation;
 	struct inv_icm42600_conf conf;
 	struct inv_icm42600_suspended suspended;
-	struct iio_dev *indio_gyro;
-	struct iio_dev *indio_accel;
 	struct iio_dev *indio_dev;
 	uint8_t buffer[2] __aligned(IIO_DMA_MINALIGN);
 	struct inv_icm42600_fifo fifo;
