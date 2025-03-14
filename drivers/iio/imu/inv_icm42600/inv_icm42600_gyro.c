@@ -199,9 +199,7 @@ exit:
 }
 
 /* IIO format int + nano */
-#define INV_ICM42600_GYRO_SCALE_LEN 16
-
-const int inv_icm42600_gyro_scale[INV_ICM42600_GYRO_SCALE_LEN] = {
+const int inv_icm42600_gyro_scale[] = {
 	/* +/- 2000dps => 0.001065264 rad/s */
 	[2 * INV_ICM42600_GYRO_FS_2000DPS] = 0,
 	[2 * INV_ICM42600_GYRO_FS_2000DPS + 1] = 1065264,
