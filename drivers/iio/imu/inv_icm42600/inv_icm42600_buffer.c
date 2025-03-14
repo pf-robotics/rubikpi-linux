@@ -303,23 +303,22 @@ static int inv_icm42600_buffer_postenable(struct iio_dev *indio_dev)
 		ret = 0;
 		goto out_on;
 	}
-
 	/* set FIFO threshold interrupt */
-	ret = regmap_update_bits(st->map, INV_ICM42600_REG_INT_SOURCE0,
+	ret = regmap_update_bits(st->map, INV_ICM42670_REG_INT_SOURCE0,
 				 INV_ICM42600_INT_SOURCE0_FIFO_THS_INT1_EN,
 				 INV_ICM42600_INT_SOURCE0_FIFO_THS_INT1_EN);
 	if (ret)
 		goto out_unlock;
 
 	/* flush FIFO data */
-	ret = regmap_write(st->map, INV_ICM42600_REG_SIGNAL_PATH_RESET,
-			   INV_ICM42600_SIGNAL_PATH_RESET_FIFO_FLUSH);
+	ret = regmap_write(st->map, INV_ICM42670_REG_SIGNAL_PATH_RESET,
+			   INV_ICM42670_SIGNAL_PATH_RESET_FIFO_FLUSH);
 	if (ret)
 		goto out_unlock;
 
 	/* set FIFO in streaming mode */
-	ret = regmap_write(st->map, INV_ICM42600_REG_FIFO_CONFIG,
-			   INV_ICM42600_FIFO_CONFIG_STREAM);
+	ret = regmap_write(st->map, INV_ICM42670_REG_FIFO_CONFIG1,
+			   INV_ICM42670_FIFO_CONFIG1_STREAM);
 	if (ret)
 		goto out_unlock;
 
@@ -469,7 +468,7 @@ int inv_icm42600_buffer_fifo_read(struct inv_icm42600_state *st,
 
 	/* read FIFO count value */
 	raw_fifo_count = (__be16 *)st->buffer;
-	ret = regmap_bulk_read(st->map, INV_ICM42600_REG_FIFO_COUNT,
+	ret = regmap_bulk_read(st->map, INV_ICM42670_REG_FIFO_COUNT,
 			       raw_fifo_count, sizeof(*raw_fifo_count));
 	if (ret)
 		return ret;
@@ -480,9 +479,8 @@ int inv_icm42600_buffer_fifo_read(struct inv_icm42600_state *st,
 		return 0;
 	if (st->fifo.count > max_count)
 		st->fifo.count = max_count;
-
 	/* read all FIFO data in internal buffer */
-	ret = regmap_noinc_read(st->map, INV_ICM42600_REG_FIFO_DATA,
+	ret = regmap_noinc_read(st->map, INV_ICM42670_REG_FIFO_DATA,
 				st->fifo.data, st->fifo.count);
 	if (ret)
 		return ret;
@@ -580,23 +578,29 @@ int inv_icm42600_buffer_init(struct inv_icm42600_state *st)
 	int ret;
 
 	/*
-	 * Default FIFO configuration (bits 7 to 5)
-	 * - use invalid value
+	 * Default FIFO configuration (bits 6 to 4)
+	 * - sensor data in little endian
 	 * - FIFO count in bytes
 	 * - FIFO count in big endian
 	 */
-	val = INV_ICM42600_INTF_CONFIG0_FIFO_COUNT_ENDIAN;
-	ret = regmap_update_bits(st->map, INV_ICM42600_REG_INTF_CONFIG0,
-				 GENMASK(7, 5), val);
+	val = INV_ICM42600_INTF_CONFIG0_FIFO_COUNT_ENDIAN |
+	      INV_ICM42600_INTF_CONFIG0_FIFO_COUNT_REC;
+	ret = regmap_update_bits(st->map, INV_ICM42670_REG_INTF_CONFIG0,
+				 GENMASK(6, 4), val);
 	if (ret)
 		return ret;
 
-	/*
-	 * Enable FIFO partial read and continuous watermark interrupt.
-	 * Disable all FIFO EN bits.
-	 */
-	val = INV_ICM42600_FIFO_CONFIG1_RESUME_PARTIAL_RD |
-	      INV_ICM42600_FIFO_CONFIG1_WM_GT_TH;
-	return regmap_update_bits(st->map, INV_ICM42600_REG_FIFO_CONFIG1,
-				  GENMASK(6, 5) | GENMASK(3, 0), val);
+	/* Set FIFO count threshold to 1 */
+	ret = regmap_write(st->map, INV_ICM42670_REG_FIFO_CONFIG2,
+			   INV_ICM42670_FIFO_CONFIG2_COUNT_1);
+	if (ret)
+		return ret;
+
+	/*Enable accel/gyro packets to FIFO */
+	ret = regmap_write(st->map, INV_ICM42670_MADDR_W, INV_ICM42670_FIFO_CONFIG5);
+	if (ret)
+		return ret;
+	val = INV_ICM42670_FIFO_CONFIG5_ACCEL_EN |
+	      INV_ICM42670_FIFO_CONFIG5_GYRO_EN;
+	return regmap_write(st->map, INV_ICM42670_M_W, val);
 }

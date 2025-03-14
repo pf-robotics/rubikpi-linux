@@ -381,11 +381,6 @@
 		bias-disable;
 	};
 
-	mi2s2_data0: mi2s2-data0-state {
-		pins = "gpio102";
-		function = "mi2s2_data0";
-	};
-
 	mi2s2_data1: mi2s2-data1-state {
 		pins = "gpio104";
 		function = "mi2s2_data1";
@@ -401,12 +396,12 @@
 		function = "mi2s2_ws";
 	};
 
-	mi2s2_data0_sleep: mi2s2-data0-sleep {
+	gpio_102_pins: gpio_102_pins {
 		pins = "gpio102";
+		pinctrl-single,pins = <102 0x1>;
 		function = "gpio";
-		drive-strength = <2>;
-		bias-pull-down;
-		input-enable;
+		drive-strength = <6>;
+		bias-pull-up;
 	};
 
 	mi2s2_data1_sleep: mi2s2-data1-sleep {
@@ -932,7 +927,7 @@
 	            <&lpass_qua_mi2s_data3_sleep>, <&lpass_lpi_i2s1_clk_sleep>,
 	            <&lpass_lpi_i2s1_ws_sleep>, <&lpass_lpi_i2s1_data0_sleep>,
 	            <&lpass_lpi_i2s1_data1_sleep>, <&mi2s2_sclk_sleep>,
-	            <&mi2s2_ws_sleep>, <&mi2s2_data0_sleep>, <&mi2s2_data1_sleep>;
+	            <&mi2s2_ws_sleep>, <&mi2s2_data1_sleep>;
 	pinctrl-1 = <&mi2s0_data0>, <&mi2s0_data1>, <&mi2s0_mclk>,
 	            <&mi2s0_sclk>, <&mi2s0_ws>,
 	            <&lpass_ext_mas_clk1_a>, <&lpass_qua_mi2s_sclk>,
@@ -941,7 +936,7 @@
 	            <&lpass_qua_mi2s_data3>, <&lpass_lpi_i2s1_clk>,
 	            <&lpass_lpi_i2s1_ws>, <&lpass_lpi_i2s1_data0>,
 	            <&lpass_lpi_i2s1_data1>, <&mi2s2_sclk>,
-	            <&mi2s2_ws>, <&mi2s2_data0>, <&mi2s2_data1>;
+	            <&mi2s2_ws>, <&mi2s2_data1>;
 	pinctrl-2 = <&mi2s0_data0_sleep>, <&mi2s0_data1_sleep>, <&mi2s0_mclk>,
 	            <&mi2s0_sclk_sleep>, <&mi2s0_ws_sleep>,
 	            <&lpass_ext_mas_clk1_a_sleep>, <&lpass_qua_mi2s_sclk_sleep>,
@@ -950,7 +945,7 @@
 	            <&lpass_qua_mi2s_data3_sleep>, <&lpass_lpi_i2s1_clk_sleep>,
 	            <&lpass_lpi_i2s1_ws_sleep>, <&lpass_lpi_i2s1_data0_sleep>,
 	            <&lpass_lpi_i2s1_data1_sleep>, <&mi2s2_sclk_sleep>,
-	            <&mi2s2_ws_sleep>, <&mi2s2_data0_sleep>, <&mi2s2_data1_sleep>;
+	            <&mi2s2_ws_sleep>, <&mi2s2_data1_sleep>;
 
 	// audio-routing =
 	// 	"VA DMIC0", "vdd-micb",
