@@ -606,27 +606,13 @@ int inv_icm42600_imu_parse_fifo(struct iio_dev *indio_dev)
 	int64_t ts_val;
 	struct inv_icm42600_imu_buffer buffer;
 
-	/* Safety check */
-	if (!st || !ts || !indio_dev || st->fifo.count <= 0)
-		return -EINVAL;
-
 	/* parse all fifo packets */
 	for (i = 0, no = 0; i < st->fifo.count; i += size, ++no) {
-		/* Make sure we don't overflow the buffer */
-		if (i >= sizeof(st->fifo.data) - 32) /* Leave a safety margin */
-			break;
-
 		size = inv_icm42600_fifo_decode_packet(&st->fifo.data[i],
 				&accel, &gyro, &temp, &timestamp, &odr);
 		/* quit if error or FIFO is empty */
 		if (size <= 0)
 			return size;
-
-		/* Skip if size is unreasonably large (safety check) */
-		if (size > 32) {
-			pr_err("inv_icm42600: invalid FIFO packet size: %zd\n", size);
-			return -EINVAL;
-		}
 
 		/* skip if all data is invalid or not needed */
 		if ((accel == NULL || !inv_icm42600_fifo_is_data_valid(accel)) &&
@@ -650,21 +636,8 @@ int inv_icm42600_imu_parse_fifo(struct iio_dev *indio_dev)
 		
 		/* convert 8 bits FIFO temperature in high resolution format */
 		buffer.temp = temp ? (*temp * 64) : 0;
-		
 		ts_val = inv_sensors_timestamp_pop(ts);
-		
-		/* Safety check before pushing buffer */
-		if (!indio_dev->buffer || !iio_buffer_enabled(indio_dev)) {
-			pr_err("inv_icm42600: buffer not enabled\n");
-			return -EINVAL;
-		}
-		
-		/* Try to prevent issues by only pushing if we have the required active channels */
-		if (indio_dev->active_scan_mask &&
-		    ((*indio_dev->active_scan_mask & INV_ICM42600_SCAN_MASK_ACCEL_3AXIS) ||
-		     (*indio_dev->active_scan_mask & INV_ICM42600_SCAN_MASK_GYRO_3AXIS))) {
-			iio_push_to_buffers_with_timestamp(indio_dev, &buffer, ts_val);
-		}
+		iio_push_to_buffers_with_timestamp(indio_dev, &buffer, ts_val);
 	}
 
 	return 0;
