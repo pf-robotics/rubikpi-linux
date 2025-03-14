@@ -146,7 +146,7 @@ static const unsigned long inv_icm42600_imu_scan_masks[] = {
 	0,
 };
 
-/* enable accelerometer and/or gyroscope sensors and FIFO write */
+/* Enable accelerometer and/or gyroscope sensors and FIFO write */
 static int inv_icm42600_imu_update_scan_mode(struct iio_dev *indio_dev,
 					    const unsigned long *scan_mask)
 {
@@ -210,7 +210,7 @@ out_unlock:
 	return ret;
 }
 
-/* read accelerometer or gyroscope sensor raw data */
+/* Read accelerometer or gyroscope sensor raw data */
 static int inv_icm42600_imu_read_sensor(struct inv_icm42600_state *st,
 					struct iio_chan_spec const *chan,
 					int16_t *val)
@@ -282,7 +282,7 @@ exit:
 	return ret;
 }
 
-/* calibration bias values for accelerometer or gyroscope */
+/* Calibration bias values for accelerometer or gyroscope */
 static int inv_icm42600_imu_read_offset(struct inv_icm42600_state *st,
 					struct iio_chan_spec const *chan,
 					int *val, int *val2)
@@ -307,7 +307,7 @@ static int inv_icm42600_imu_write_offset(struct inv_icm42600_state *st,
 	return -EINVAL;
 }
 
-/* raw IIO_CHAN_INFO_RAW interface */
+/* Raw IIO_CHAN_INFO_RAW interface */
 static int inv_icm42600_imu_read_raw(struct iio_dev *indio_dev,
 				     struct iio_chan_spec const *chan,
 				     int *val, int *val2, long mask)
@@ -606,13 +606,27 @@ int inv_icm42600_imu_parse_fifo(struct iio_dev *indio_dev)
 	int64_t ts_val;
 	struct inv_icm42600_imu_buffer buffer;
 
+	/* Safety check */
+	if (!st || !ts || !indio_dev || st->fifo.count <= 0)
+		return -EINVAL;
+
 	/* parse all fifo packets */
 	for (i = 0, no = 0; i < st->fifo.count; i += size, ++no) {
+		/* Make sure we don't overflow the buffer */
+		if (i >= sizeof(st->fifo.data) - 32) /* Leave a safety margin */
+			break;
+
 		size = inv_icm42600_fifo_decode_packet(&st->fifo.data[i],
 				&accel, &gyro, &temp, &timestamp, &odr);
 		/* quit if error or FIFO is empty */
 		if (size <= 0)
 			return size;
+
+		/* Skip if size is unreasonably large (safety check) */
+		if (size > 32) {
+			pr_err("inv_icm42600: invalid FIFO packet size: %zd\n", size);
+			return -EINVAL;
+		}
 
 		/* skip if all data is invalid or not needed */
 		if ((accel == NULL || !inv_icm42600_fifo_is_data_valid(accel)) &&
@@ -625,12 +639,32 @@ int inv_icm42600_imu_parse_fifo(struct iio_dev *indio_dev)
 
 		/* buffer is copied to userspace, zeroing it to avoid any data leak */
 		memset(&buffer, 0, sizeof(buffer));
-		memcpy(&buffer.accel, accel, sizeof(buffer.accel));
-		memcpy(&buffer.gyro, gyro, sizeof(buffer.gyro));
+		
+		/* Copy accel data if valid */
+		if (accel != NULL && inv_icm42600_fifo_is_data_valid(accel))
+			memcpy(&buffer.accel, accel, sizeof(buffer.accel));
+		
+		/* Copy gyro data if valid */
+		if (gyro != NULL && inv_icm42600_fifo_is_data_valid(gyro))
+			memcpy(&buffer.gyro, gyro, sizeof(buffer.gyro));
+		
 		/* convert 8 bits FIFO temperature in high resolution format */
 		buffer.temp = temp ? (*temp * 64) : 0;
+		
 		ts_val = inv_sensors_timestamp_pop(ts);
-		iio_push_to_buffers_with_timestamp(indio_dev, &buffer, ts_val);
+		
+		/* Safety check before pushing buffer */
+		if (!indio_dev->buffer || !iio_buffer_enabled(indio_dev)) {
+			pr_err("inv_icm42600: buffer not enabled\n");
+			return -EINVAL;
+		}
+		
+		/* Try to prevent issues by only pushing if we have the required active channels */
+		if (indio_dev->active_scan_mask &&
+		    ((*indio_dev->active_scan_mask & INV_ICM42600_SCAN_MASK_ACCEL_3AXIS) ||
+		     (*indio_dev->active_scan_mask & INV_ICM42600_SCAN_MASK_GYRO_3AXIS))) {
+			iio_push_to_buffers_with_timestamp(indio_dev, &buffer, ts_val);
+		}
 	}
 
 	return 0;

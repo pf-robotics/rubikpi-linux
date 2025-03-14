@@ -660,10 +660,22 @@ int inv_icm42600_core_probe(struct regmap *regmap, int chip, int irq,
 	ret = inv_icm42600_buffer_init(st);
 	if (ret)
 		return ret;
+	
 	/* Initialize the unified IMU device */
 	st->indio_dev = inv_icm42600_imu_init(st);
 	if (IS_ERR(st->indio_dev))
 		return PTR_ERR(st->indio_dev);
+	
+	/* Legacy support - for backward compatibility, but not used */
+	if (0) {
+		st->indio_gyro = inv_icm42600_gyro_init(st);
+		if (IS_ERR(st->indio_gyro))
+			return PTR_ERR(st->indio_gyro);
+
+		st->indio_accel = inv_icm42600_accel_init(st);
+		if (IS_ERR(st->indio_accel))
+			return PTR_ERR(st->indio_accel);
+	}
 
 	ret = inv_icm42600_irq_init(st, irq, irq_type, open_drain);
 	if (ret)
