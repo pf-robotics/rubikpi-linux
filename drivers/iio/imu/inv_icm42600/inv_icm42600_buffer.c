@@ -414,7 +414,7 @@ static int inv_icm42600_buffer_postdisable(struct iio_dev *indio_dev)
 	conf.mode = INV_ICM42600_SENSOR_MODE_OFF;
 	
 	/* For unified device, turn off both accel and gyro */
-	if (0) {//indio_dev == st->indio_dev) {
+	if (indio_dev == st->indio_dev) {
 		ret = inv_icm42600_set_accel_conf(st, &conf, &sleep_sensor);
 		if (ret)
 			goto out_unlock;

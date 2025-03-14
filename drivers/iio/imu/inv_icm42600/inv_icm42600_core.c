@@ -431,8 +431,8 @@ static irqreturn_t inv_icm42600_irq_timestamp(int irq, void *_data)
 {
 	struct inv_icm42600_state *st = _data;
 
-	st->timestamp.gyro = iio_get_time_ns(st->indio_gyro);
-	st->timestamp.accel = iio_get_time_ns(st->indio_accel);
+	st->timestamp.gyro = iio_get_time_ns(st->indio_dev);
+	st->timestamp.accel = iio_get_time_ns(st->indio_dev);
 
 	return IRQ_WAKE_THREAD;
 }
