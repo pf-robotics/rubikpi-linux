@@ -199,9 +199,7 @@ exit:
 }
 
 /* IIO format int + nano */
-#define INV_ICM42600_ACCEL_SCALE_LEN 16
-
-const int inv_icm42600_accel_scale[INV_ICM42600_ACCEL_SCALE_LEN] = {
+const int inv_icm42600_accel_scale[] = {
 	/* +/- 16G => 0.004788403 m/s-2 */
 	[2 * INV_ICM42600_ACCEL_FS_16G] = 0,
 	[2 * INV_ICM42600_ACCEL_FS_16G + 1] = 4788403,
@@ -356,7 +354,7 @@ out_unlock:
  * Calibration bias values, IIO range format int + micro.
  * Value is limited to +/-1g coded on 12 bits signed. Step is 0.5mg.
  */
-const int inv_icm42600_accel_calibbias[] = {
+int inv_icm42600_accel_calibbias[] = {
 	-10, 42010,		/* min: -10.042010 m/s² */
 	0, 4903,		/* step: 0.004903 m/s² */
 	10, 37106,		/* max: 10.037106 m/s² */
