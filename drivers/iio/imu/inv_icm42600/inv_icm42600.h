@@ -136,8 +136,9 @@ struct inv_icm42600_suspended {
  *  @orientation:	sensor chip orientation relative to main hardware.
  *  @conf:		chip sensors configurations.
  *  @suspended:		suspended sensors configuration.
- *  @indio_gyro:	gyroscope IIO device.
- *  @indio_accel:	accelerometer IIO device.
+ *  @indio_gyro:	gyroscope IIO device (for backward compatibility).
+ *  @indio_accel:	accelerometer IIO device (for backward compatibility).
+ *  @indio_dev:		unified IMU IIO device.
  *  @buffer:		data transfer buffer aligned for DMA.
  *  @fifo:		FIFO management structure.
  *  @timestamp:		interrupt timestamps.
@@ -154,6 +155,7 @@ struct inv_icm42600_state {
 	struct inv_icm42600_suspended suspended;
 	struct iio_dev *indio_gyro;
 	struct iio_dev *indio_accel;
+	struct iio_dev *indio_dev;
 	uint8_t buffer[2] __aligned(IIO_DMA_MINALIGN);
 	struct inv_icm42600_fifo fifo;
 	struct {
@@ -448,8 +450,62 @@ struct iio_dev *inv_icm42600_gyro_init(struct inv_icm42600_state *st);
 
 int inv_icm42600_gyro_parse_fifo(struct iio_dev *indio_dev);
 
+int inv_icm42600_gyro_read_scale(struct inv_icm42600_state *st, int *val, int *val2);
+
+int inv_icm42600_gyro_read_offset(struct inv_icm42600_state *st,
+				  struct iio_chan_spec const *chan,
+				  int *val, int *val2);
+
+int inv_icm42600_gyro_write_offset(struct inv_icm42600_state *st,
+				  struct iio_chan_spec const *chan,
+				  int val, int val2);
+
 struct iio_dev *inv_icm42600_accel_init(struct inv_icm42600_state *st);
 
 int inv_icm42600_accel_parse_fifo(struct iio_dev *indio_dev);
+
+int inv_icm42600_accel_read_scale(struct inv_icm42600_state *st, int *val, int *val2);
+
+int inv_icm42600_accel_read_odr(struct inv_icm42600_state *st, int *val, int *val2);
+
+int inv_icm42600_accel_write_odr(struct iio_dev *indio_dev, int val, int val2);
+
+int inv_icm42600_accel_write_scale(struct inv_icm42600_state *st, int val, int val2);
+
+int inv_icm42600_gyro_read_odr(struct inv_icm42600_state *st, int *val, int *val2);
+
+int inv_icm42600_gyro_write_odr(struct iio_dev *indio_dev, int val, int val2);
+
+int inv_icm42600_gyro_write_scale(struct inv_icm42600_state *st, int val, int val2);
+
+#define INV_ICM42600_ACCEL_SCALE_LEN 16
+#define INV_ICM42600_GYRO_SCALE_LEN 16
+#define INV_ICM42600_ACCEL_ODR_LEN 16
+#define INV_ICM42600_GYRO_ODR_LEN 16
+#define INV_ICM42600_ACCEL_ODR_CONV_LEN 8
+#define INV_ICM42600_GYRO_ODR_CONV_LEN 8
+#define INV_ICM42600_ACCEL_CALIBBIAS_LEN 6
+#define INV_ICM42600_GYRO_CALIBBIAS_LEN 6
+
+extern const int inv_icm42600_accel_scale[INV_ICM42600_ACCEL_SCALE_LEN];
+extern const int inv_icm42600_gyro_scale[INV_ICM42600_GYRO_SCALE_LEN];
+extern const int inv_icm42600_accel_odr[INV_ICM42600_ACCEL_ODR_LEN];
+extern const int inv_icm42600_gyro_odr[INV_ICM42600_GYRO_ODR_LEN];
+extern const int inv_icm42600_accel_odr_conv[INV_ICM42600_ACCEL_ODR_CONV_LEN];
+extern const int inv_icm42600_gyro_odr_conv[INV_ICM42600_GYRO_ODR_CONV_LEN];
+extern const int inv_icm42600_accel_calibbias[INV_ICM42600_ACCEL_CALIBBIAS_LEN];
+extern const int inv_icm42600_gyro_calibbias[INV_ICM42600_GYRO_CALIBBIAS_LEN];
+
+int inv_icm42600_accel_read_offset(struct inv_icm42600_state *st,
+				   struct iio_chan_spec const *chan,
+				   int *val, int *val2);
+
+int inv_icm42600_accel_write_offset(struct inv_icm42600_state *st,
+				   struct iio_chan_spec const *chan,
+				   int val, int val2);
+
+struct iio_dev *inv_icm42600_imu_init(struct inv_icm42600_state *st);
+
+int inv_icm42600_imu_parse_fifo(struct iio_dev *indio_dev);
 
 #endif
