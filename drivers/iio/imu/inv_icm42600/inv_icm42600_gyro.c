@@ -195,7 +195,9 @@ exit:
 }
 
 /* IIO format int + nano */
-static const int inv_icm42600_gyro_scale[] = {
+#define INV_ICM42600_GYRO_SCALE_LEN 16
+
+const int inv_icm42600_gyro_scale[INV_ICM42600_GYRO_SCALE_LEN] = {
 	/* +/- 2000dps => 0.001065264 rad/s */
 	[2 * INV_ICM42600_GYRO_FS_2000DPS] = 0,
 	[2 * INV_ICM42600_GYRO_FS_2000DPS + 1] = 1065264,
@@ -222,7 +224,7 @@ static const int inv_icm42600_gyro_scale[] = {
 	[2 * INV_ICM42600_GYRO_FS_15_625DPS + 1] = 8322,
 };
 
-static int inv_icm42600_gyro_read_scale(struct inv_icm42600_state *st,
+int inv_icm42600_gyro_read_scale(struct inv_icm42600_state *st,
 					int *val, int *val2)
 {
 	unsigned int idx;
@@ -234,7 +236,7 @@ static int inv_icm42600_gyro_read_scale(struct inv_icm42600_state *st,
 	return IIO_VAL_INT_PLUS_NANO;
 }
 
-static int inv_icm42600_gyro_write_scale(struct inv_icm42600_state *st,
+int inv_icm42600_gyro_write_scale(struct inv_icm42600_state *st,
 					 int val, int val2)
 {
 	struct device *dev = regmap_get_device(st->map);
@@ -265,7 +267,9 @@ static int inv_icm42600_gyro_write_scale(struct inv_icm42600_state *st,
 }
 
 /* IIO format int + micro */
-static const int inv_icm42600_gyro_odr[] = {
+#define INV_ICM42600_GYRO_ODR_LEN 16
+
+const int inv_icm42600_gyro_odr[INV_ICM42600_GYRO_ODR_LEN] = {
 	/* 12.5Hz */
 	12, 500000,
 	/* 25Hz */
@@ -284,7 +288,9 @@ static const int inv_icm42600_gyro_odr[] = {
 	4000, 0,
 };
 
-static const int inv_icm42600_gyro_odr_conv[] = {
+#define INV_ICM42600_GYRO_ODR_CONV_LEN 8
+
+const int inv_icm42600_gyro_odr_conv[INV_ICM42600_GYRO_ODR_CONV_LEN] = {
 	INV_ICM42600_ODR_12_5HZ,
 	INV_ICM42600_ODR_25HZ,
 	INV_ICM42600_ODR_50HZ,
@@ -295,7 +301,7 @@ static const int inv_icm42600_gyro_odr_conv[] = {
 	INV_ICM42600_ODR_4KHZ_LN,
 };
 
-static int inv_icm42600_gyro_read_odr(struct inv_icm42600_state *st,
+int inv_icm42600_gyro_read_odr(struct inv_icm42600_state *st,
 				      int *val, int *val2)
 {
 	unsigned int odr;
@@ -316,7 +322,7 @@ static int inv_icm42600_gyro_read_odr(struct inv_icm42600_state *st,
 	return IIO_VAL_INT_PLUS_MICRO;
 }
 
-static int inv_icm42600_gyro_write_odr(struct iio_dev *indio_dev,
+int inv_icm42600_gyro_write_odr(struct iio_dev *indio_dev,
 				       int val, int val2)
 {
 	struct inv_icm42600_state *st = iio_device_get_drvdata(indio_dev);
@@ -362,13 +368,15 @@ out_unlock:
  * Calibration bias values, IIO range format int + nano.
  * Value is limited to +/-64dps coded on 12 bits signed. Step is 1/32 dps.
  */
-static int inv_icm42600_gyro_calibbias[] = {
+#define INV_ICM42600_GYRO_CALIBBIAS_LEN 6
+
+const int inv_icm42600_gyro_calibbias[INV_ICM42600_GYRO_CALIBBIAS_LEN] = {
 	-1, 117010721,		/* min: -1.117010721 rad/s */
 	0, 545415,		/* step: 0.000545415 rad/s */
 	1, 116465306,		/* max: 1.116465306 rad/s */
 };
 
-static int inv_icm42600_gyro_read_offset(struct inv_icm42600_state *st,
+int inv_icm42600_gyro_read_offset(struct inv_icm42600_state *st,
 					 struct iio_chan_spec const *chan,
 					 int *val, int *val2)
 {
@@ -444,7 +452,7 @@ static int inv_icm42600_gyro_read_offset(struct inv_icm42600_state *st,
 	return IIO_VAL_INT_PLUS_NANO;
 }
 
-static int inv_icm42600_gyro_write_offset(struct inv_icm42600_state *st,
+int inv_icm42600_gyro_write_offset(struct inv_icm42600_state *st,
 					  struct iio_chan_spec const *chan,
 					  int val, int val2)
 {

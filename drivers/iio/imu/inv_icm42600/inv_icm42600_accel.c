@@ -195,7 +195,9 @@ exit:
 }
 
 /* IIO format int + nano */
-static const int inv_icm42600_accel_scale[] = {
+#define INV_ICM42600_ACCEL_SCALE_LEN 16
+
+const int inv_icm42600_accel_scale[INV_ICM42600_ACCEL_SCALE_LEN] = {
 	/* +/- 16G => 0.004788403 m/s-2 */
 	[2 * INV_ICM42600_ACCEL_FS_16G] = 0,
 	[2 * INV_ICM42600_ACCEL_FS_16G + 1] = 4788403,
@@ -210,7 +212,7 @@ static const int inv_icm42600_accel_scale[] = {
 	[2 * INV_ICM42600_ACCEL_FS_2G + 1] = 598550,
 };
 
-static int inv_icm42600_accel_read_scale(struct inv_icm42600_state *st,
+int inv_icm42600_accel_read_scale(struct inv_icm42600_state *st,
 					 int *val, int *val2)
 {
 	unsigned int idx;
@@ -222,7 +224,7 @@ static int inv_icm42600_accel_read_scale(struct inv_icm42600_state *st,
 	return IIO_VAL_INT_PLUS_NANO;
 }
 
-static int inv_icm42600_accel_write_scale(struct inv_icm42600_state *st,
+int inv_icm42600_accel_write_scale(struct inv_icm42600_state *st,
 					  int val, int val2)
 {
 	struct device *dev = regmap_get_device(st->map);
@@ -253,7 +255,9 @@ static int inv_icm42600_accel_write_scale(struct inv_icm42600_state *st,
 }
 
 /* IIO format int + micro */
-static const int inv_icm42600_accel_odr[] = {
+#define INV_ICM42600_ACCEL_ODR_LEN 16
+
+const int inv_icm42600_accel_odr[INV_ICM42600_ACCEL_ODR_LEN] = {
 	/* 12.5Hz */
 	12, 500000,
 	/* 25Hz */
@@ -272,7 +276,9 @@ static const int inv_icm42600_accel_odr[] = {
 	4000, 0,
 };
 
-static const int inv_icm42600_accel_odr_conv[] = {
+#define INV_ICM42600_ACCEL_ODR_CONV_LEN 8
+
+const int inv_icm42600_accel_odr_conv[INV_ICM42600_ACCEL_ODR_CONV_LEN] = {
 	INV_ICM42600_ODR_12_5HZ,
 	INV_ICM42600_ODR_25HZ,
 	INV_ICM42600_ODR_50HZ,
@@ -283,7 +289,7 @@ static const int inv_icm42600_accel_odr_conv[] = {
 	INV_ICM42600_ODR_4KHZ_LN,
 };
 
-static int inv_icm42600_accel_read_odr(struct inv_icm42600_state *st,
+int inv_icm42600_accel_read_odr(struct inv_icm42600_state *st,
 				       int *val, int *val2)
 {
 	unsigned int odr;
@@ -304,7 +310,7 @@ static int inv_icm42600_accel_read_odr(struct inv_icm42600_state *st,
 	return IIO_VAL_INT_PLUS_MICRO;
 }
 
-static int inv_icm42600_accel_write_odr(struct iio_dev *indio_dev,
+int inv_icm42600_accel_write_odr(struct iio_dev *indio_dev,
 					int val, int val2)
 {
 	struct inv_icm42600_state *st = iio_device_get_drvdata(indio_dev);
@@ -350,13 +356,15 @@ out_unlock:
  * Calibration bias values, IIO range format int + micro.
  * Value is limited to +/-1g coded on 12 bits signed. Step is 0.5mg.
  */
-static int inv_icm42600_accel_calibbias[] = {
+#define INV_ICM42600_ACCEL_CALIBBIAS_LEN 6
+
+const int inv_icm42600_accel_calibbias[INV_ICM42600_ACCEL_CALIBBIAS_LEN] = {
 	-10, 42010,		/* min: -10.042010 m/s² */
 	0, 4903,		/* step: 0.004903 m/s² */
 	10, 37106,		/* max: 10.037106 m/s² */
 };
 
-static int inv_icm42600_accel_read_offset(struct inv_icm42600_state *st,
+int inv_icm42600_accel_read_offset(struct inv_icm42600_state *st,
 					  struct iio_chan_spec const *chan,
 					  int *val, int *val2)
 {
@@ -432,7 +440,7 @@ static int inv_icm42600_accel_read_offset(struct inv_icm42600_state *st,
 	return IIO_VAL_INT_PLUS_MICRO;
 }
 
-static int inv_icm42600_accel_write_offset(struct inv_icm42600_state *st,
+int inv_icm42600_accel_write_offset(struct inv_icm42600_state *st,
 					   struct iio_chan_spec const *chan,
 					   int val, int val2)
 {
