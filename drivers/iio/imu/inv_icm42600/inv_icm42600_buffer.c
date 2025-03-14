@@ -386,7 +386,13 @@ static int inv_icm42600_buffer_postdisable(struct iio_dev *indio_dev)
 	unsigned int sleep;
 	int ret;
 
-	if (indio_dev == st->indio_dev) {
+	if (indio_dev == st->indio_gyro) {
+		sensor = INV_ICM42600_SENSOR_GYRO;
+		watermark = &st->fifo.watermark.gyro;
+	} else if (indio_dev == st->indio_accel) {
+		sensor = INV_ICM42600_SENSOR_ACCEL;
+		watermark = &st->fifo.watermark.accel;
+	} else if (indio_dev == st->indio_dev) {
 		/* For unified IMU device, handle both accel and gyro */
 		sensor = INV_ICM42600_SENSOR_ACCEL | INV_ICM42600_SENSOR_GYRO;
 		watermark = &st->fifo.watermark.accel; /* Use accel watermark for simplicity */
@@ -519,17 +525,58 @@ int inv_icm42600_buffer_fifo_parse(struct inv_icm42600_state *st)
 
 	if (st->fifo.nb.total == 0)
 		return 0;
-
+	
 	/* Handle unified IMU device */
 	if (st->indio_dev && iio_buffer_enabled(st->indio_dev)) {
+		/* Add extra safety check */
+		if (!st->indio_dev || !iio_device_get_drvdata(st->indio_dev)) {
+			pr_err("inv_icm42600: Invalid IMU device\n");
+			goto legacy_devices;
+		}
+		
 		ts = iio_priv(st->indio_dev);
+		if (!ts) {
+			pr_err("inv_icm42600: Invalid timestamp data\n");
+			goto legacy_devices;
+		}
+		
 		inv_sensors_timestamp_interrupt(ts, st->fifo.period, st->fifo.nb.total,
 						st->fifo.nb.total, st->timestamp.accel);
 		ret = inv_icm42600_imu_parse_fifo(st->indio_dev);
-		if (ret) {
+		if (ret && ret != -EINVAL) {
+			pr_err("inv_icm42600: Error parsing FIFO: %d\n", ret);
 			return ret;
 		}
+		return 0;
 	}
+	
+legacy_devices:
+
+	/* Legacy support for separate devices */
+	if (st->indio_gyro) {
+		/* handle gyroscope timestamp and FIFO data parsing */
+		ts = iio_priv(st->indio_gyro);
+		inv_sensors_timestamp_interrupt(ts, st->fifo.period, st->fifo.nb.total,
+						st->fifo.nb.gyro, st->timestamp.gyro);
+		if (st->fifo.nb.gyro > 0) {
+			ret = inv_icm42600_gyro_parse_fifo(st->indio_gyro);
+			if (ret)
+				return ret;
+		}
+	}
+
+	if (st->indio_accel) {
+		/* handle accelerometer timestamp and FIFO data parsing */
+		ts = iio_priv(st->indio_accel);
+		inv_sensors_timestamp_interrupt(ts, st->fifo.period, st->fifo.nb.total,
+						st->fifo.nb.accel, st->timestamp.accel);
+		if (st->fifo.nb.accel > 0) {
+			ret = inv_icm42600_accel_parse_fifo(st->indio_accel);
+			if (ret)
+				return ret;
+		}
+	}
+
 	return 0;
 }
 
@@ -537,12 +584,18 @@ int inv_icm42600_buffer_hwfifo_flush(struct inv_icm42600_state *st,
 				     unsigned int count)
 {
 	struct inv_sensors_timestamp *ts;
-	int64_t imu_ts = 0;
+	int64_t gyro_ts = 0, accel_ts = 0, imu_ts = 0;
 	int ret;
 
 	/* Get current timestamps for all enabled devices */
 	if (st->indio_dev && iio_buffer_enabled(st->indio_dev))
 		imu_ts = iio_get_time_ns(st->indio_dev);
+	
+	if (st->indio_gyro && iio_buffer_enabled(st->indio_gyro))
+		gyro_ts = iio_get_time_ns(st->indio_gyro);
+	
+	if (st->indio_accel && iio_buffer_enabled(st->indio_accel))
+		accel_ts = iio_get_time_ns(st->indio_accel);
 
 	ret = inv_icm42600_buffer_fifo_read(st, count);
 	if (ret)
@@ -550,18 +603,55 @@ int inv_icm42600_buffer_hwfifo_flush(struct inv_icm42600_state *st,
 
 	if (st->fifo.nb.total == 0)
 		return 0;
-
+	
 	/* Handle unified IMU device */
 	if (st->indio_dev && iio_buffer_enabled(st->indio_dev)) {
+		/* Add extra safety check */
+		if (!st->indio_dev || !iio_device_get_drvdata(st->indio_dev)) {
+			pr_err("inv_icm42600: Invalid IMU device in flush\n");
+			goto legacy_devices;
+		}
+		
+		ts = iio_priv(st->indio_dev);
+		if (!ts) {
+			pr_err("inv_icm42600: Invalid timestamp data in flush\n");
+			goto legacy_devices;
+		}
+		
 		inv_sensors_timestamp_interrupt(ts, st->fifo.period,
 						st->fifo.nb.total, st->fifo.nb.total,
 						imu_ts);
 		ret = inv_icm42600_imu_parse_fifo(st->indio_dev);
-		if (ret) {
+		if (ret && ret != -EINVAL) {
+			pr_err("inv_icm42600: Error parsing FIFO in flush: %d\n", ret);
 			return ret;
 		}
 		return 0;
 	}
+	
+legacy_devices:
+
+	/* Legacy support for separate devices */
+	if (st->indio_gyro && st->fifo.nb.gyro > 0) {
+		ts = iio_priv(st->indio_gyro);
+		inv_sensors_timestamp_interrupt(ts, st->fifo.period,
+						st->fifo.nb.total, st->fifo.nb.gyro,
+						gyro_ts);
+		ret = inv_icm42600_gyro_parse_fifo(st->indio_gyro);
+		if (ret)
+			return ret;
+	}
+
+	if (st->indio_accel && st->fifo.nb.accel > 0) {
+		ts = iio_priv(st->indio_accel);
+		inv_sensors_timestamp_interrupt(ts, st->fifo.period,
+						st->fifo.nb.total, st->fifo.nb.accel,
+						accel_ts);
+		ret = inv_icm42600_accel_parse_fifo(st->indio_accel);
+		if (ret)
+			return ret;
+	}
+
 	return 0;
 }
 
