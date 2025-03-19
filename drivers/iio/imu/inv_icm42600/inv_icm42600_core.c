@@ -418,7 +418,7 @@ static int inv_icm42600_setup(struct inv_icm42600_state *st,
 	// 	return ret;
 
 	/* sensor data in big-endian (default) */
-	ret = regmap_update_bits(st->map, INV_ICM42600_REG_INTF_CONFIG0,
+	ret = regmap_update_bits(st->map, INV_ICM42670_REG_INTF_CONFIG0,
 				 INV_ICM42600_INTF_CONFIG0_SENSOR_DATA_ENDIAN,
 				 INV_ICM42600_INTF_CONFIG0_SENSOR_DATA_ENDIAN);
 	if (ret)
