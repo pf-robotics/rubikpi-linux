@@ -70,13 +70,13 @@ static const struct inv_icm42600_conf inv_icm42670_default_conf = {
 	.gyro = {
 		.mode = INV_ICM42600_SENSOR_MODE_LOW_NOISE,
 		.fs = INV_ICM42600_GYRO_FS_2000DPS,
-		.odr = INV_ICM42670_ODR_400HZ,
+		.odr = INV_ICM42670_ODR_800HZ,
 		.filter = INV_ICM42600_FILTER_BW_ODR_DIV_2,
 	},
 	.accel = {
 		.mode = INV_ICM42600_SENSOR_MODE_LOW_NOISE,
 		.fs = INV_ICM42600_ACCEL_FS_16G,
-		.odr = INV_ICM42670_ODR_400HZ,
+		.odr = INV_ICM42670_ODR_800HZ,
 		.filter = INV_ICM42600_FILTER_BW_ODR_DIV_2,
 	},
 	.temp_en = false,
