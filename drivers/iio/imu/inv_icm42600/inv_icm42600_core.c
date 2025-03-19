@@ -70,13 +70,13 @@ static const struct inv_icm42600_conf inv_icm42670_default_conf = {
 	.gyro = {
 		.mode = INV_ICM42600_SENSOR_MODE_LOW_NOISE,
 		.fs = INV_ICM42600_GYRO_FS_2000DPS,
-		.odr = INV_ICM42670_ODR_200HZ,
+		.odr = INV_ICM42670_ODR_400HZ,
 		.filter = INV_ICM42600_FILTER_BW_ODR_DIV_2,
 	},
 	.accel = {
 		.mode = INV_ICM42600_SENSOR_MODE_LOW_NOISE,
 		.fs = INV_ICM42600_ACCEL_FS_16G,
-		.odr = INV_ICM42670_ODR_200HZ,
+		.odr = INV_ICM42670_ODR_400HZ,
 		.filter = INV_ICM42600_FILTER_BW_ODR_DIV_2,
 	},
 	.temp_en = false,
@@ -417,10 +417,10 @@ static int inv_icm42600_setup(struct inv_icm42600_state *st,
 	// if (ret)
 	// 	return ret;
 
-	/* sensor data in big-endian (default) */
+	/* sensor data in little-endian */
 	ret = regmap_update_bits(st->map, INV_ICM42670_REG_INTF_CONFIG0,
 				 INV_ICM42600_INTF_CONFIG0_SENSOR_DATA_ENDIAN,
-				 INV_ICM42600_INTF_CONFIG0_SENSOR_DATA_ENDIAN);
+				 0x00);
 	if (ret)
 		return ret;
 

@@ -53,7 +53,7 @@ enum inv_icm42600_imu_scan {
 			.sign = 's',					\
 			.realbits = 16,					\
 			.storagebits = 16,				\
-			.endianness = IIO_BE,				\
+			.endianness = IIO_LE,				\
 		},							\
 		.ext_info = _ext_info,					\
 	}
@@ -80,7 +80,7 @@ enum inv_icm42600_imu_scan {
 			.sign = 's',					\
 			.realbits = 16,					\
 			.storagebits = 16,				\
-			.endianness = IIO_BE,				\
+			.endianness = IIO_LE,				\
 		},							\
 		.ext_info = _ext_info,					\
 	}
