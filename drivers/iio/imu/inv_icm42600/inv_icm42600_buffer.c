@@ -567,7 +567,7 @@ int inv_icm42600_buffer_init(struct inv_icm42600_state *st)
 	/*
 	 * Default FIFO configuration (bits 6 to 4)
 	 * - sensor data in little endian
-	 * - FIFO count in bytes
+	 * - FIFO count in records
 	 * - FIFO count in big endian
 	 */
 	val = INV_ICM42600_INTF_CONFIG0_FIFO_COUNT_ENDIAN |
