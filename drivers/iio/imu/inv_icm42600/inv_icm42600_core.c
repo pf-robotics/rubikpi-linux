@@ -530,13 +530,9 @@ static int inv_icm42600_timestamp_setup(struct inv_icm42600_state *st)
 	unsigned int val;
 
 	/* enable timestamp register */
-	ret = regmap_write(st->map, INV_ICM42670_MADDR_W, INV_ICM42670_REG_TMST_CONFIG1);
-	if (ret)
-		return ret;
 	val = INV_ICM42600_TMST_CONFIG_TMST_TO_REGS_EN |
 	      INV_ICM42600_TMST_CONFIG_TMST_EN;
-        //	return regmap_write(st->map, INV_ICM42670_M_W, val);
-	return regmap_update_bits(st->map, INV_ICM42670_M_W,
+	return regmap_update_bits(st->map, INV_ICM42600_REG_TMST_CONFIG,
 				  INV_ICM42600_TMST_CONFIG_MASK, val);
 }
 
