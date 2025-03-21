@@ -17,6 +17,8 @@
 #include <linux/regmap.h>
 
 #include <linux/iio/iio.h>
+#include <linux/iio/buffer.h>
+#include <linux/iio/trigger_consumer.h>
 
 #include "inv_icm42600.h"
 #include "inv_icm42600_buffer.h"
@@ -70,13 +72,13 @@ static const struct inv_icm42600_conf inv_icm42670_default_conf = {
 	.gyro = {
 		.mode = INV_ICM42600_SENSOR_MODE_LOW_NOISE,
 		.fs = INV_ICM42600_GYRO_FS_2000DPS,
-		.odr = INV_ICM42670_ODR_800HZ,
+		.odr = INV_ICM42670_ODR_200HZ,
 		.filter = INV_ICM42600_FILTER_BW_ODR_DIV_2,
 	},
 	.accel = {
 		.mode = INV_ICM42600_SENSOR_MODE_LOW_NOISE,
 		.fs = INV_ICM42600_ACCEL_FS_16G,
-		.odr = INV_ICM42670_ODR_800HZ,
+		.odr = INV_ICM42670_ODR_200HZ,
 		.filter = INV_ICM42600_FILTER_BW_ODR_DIV_2,
 	},
 	.temp_en = false,
@@ -443,36 +445,33 @@ static irqreturn_t inv_icm42600_irq_handler(int irq, void *_data)
 	struct device *dev = regmap_get_device(st->map);
 	unsigned int status;
 	int ret;
-	u8 data[12]; // 加速度・ジャイロの6つのレジスタ (x, y, z) × 2バイト
+	u8 data[12];
 	int16_t accel_data[3], gyro_data[3];
 	struct iio_dev *indio_dev = st->indio_dev;
 	uint64_t timestamp = st->timestamp.accel;
 
 	mutex_lock(&st->lock);
 
-	ret = regmap_read(st->map, INV_ICM42670_REG_INT_STATUS, &status);
+	ret = regmap_read(st->map, INV_ICM42670_REG_INT_STATUS_DRDY, &status);
 	if (ret)
 		goto out_unlock;
 
 	/* DATA ready interrupt */
-	if (status & INV_ICM42600_INT_STATUS_DATA_RDY) {
-		/* 加速度とジャイロのデータを一度に読み取る */
+	if (status) {
 		ret = regmap_bulk_read(st->map, INV_ICM42600_REG_ACCEL_DATA_X, data, sizeof(data));
 		if (ret) {
 			dev_err(dev, "Register read error %d\n", ret);
 			goto out_unlock;
 		}
 
-		/* バイトオーダー変換 (リトルエンディアンで設定済みなのでそのまま読める) */
 		accel_data[0] = ((int16_t)data[0]) | (((int16_t)data[1]) << 8);
 		accel_data[1] = ((int16_t)data[2]) | (((int16_t)data[3]) << 8);
 		accel_data[2] = ((int16_t)data[4]) | (((int16_t)data[5]) << 8);
-		
+
 		gyro_data[0] = ((int16_t)data[6]) | (((int16_t)data[7]) << 8);
 		gyro_data[1] = ((int16_t)data[8]) | (((int16_t)data[9]) << 8);
 		gyro_data[2] = ((int16_t)data[10]) | (((int16_t)data[11]) << 8);
 
-		/* データを IIO バッファに送信 */
 		if (indio_dev && iio_buffer_enabled(indio_dev)) {
 			struct {
 				int16_t channels[6];
