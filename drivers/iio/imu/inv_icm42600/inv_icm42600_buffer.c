@@ -288,8 +288,8 @@ static int inv_icm42600_buffer_preenable(struct iio_dev *indio_dev)
 }
 
 /*
- * update_scan_mode callback is turning sensors on and setting data FIFO enable
- * bits.
+ * update_scan_mode callback is turning sensors on and setting data ready interrupt
+ * enable bit.
  */
 static int inv_icm42600_buffer_postenable(struct iio_dev *indio_dev)
 {
@@ -298,37 +298,27 @@ static int inv_icm42600_buffer_postenable(struct iio_dev *indio_dev)
 
 	mutex_lock(&st->lock);
 
-	/* exit if FIFO is already on */
+	/* exit if data streaming is already on */
 	if (st->fifo.on) {
 		ret = 0;
 		goto out_on;
 	}
-	/* set FIFO threshold interrupt */
+
+	/* set DATA_RDY interrupt */
 	ret = regmap_update_bits(st->map, INV_ICM42670_REG_INT_SOURCE0,
-				 INV_ICM42600_INT_SOURCE0_FIFO_THS_INT1_EN,
-				 INV_ICM42600_INT_SOURCE0_FIFO_THS_INT1_EN);
+				 INV_ICM42600_INT_SOURCE0_UI_DRDY_INT1_EN,
+				 INV_ICM42600_INT_SOURCE0_UI_DRDY_INT1_EN);
 	if (ret)
 		goto out_unlock;
 
-	/* flush FIFO data */
-	ret = regmap_write(st->map, INV_ICM42670_REG_SIGNAL_PATH_RESET,
-			   INV_ICM42670_SIGNAL_PATH_RESET_FIFO_FLUSH);
-	if (ret)
-		goto out_unlock;
-
-	/* set FIFO in streaming mode */
+	/* disable FIFO mode, set to bypass mode */
 	ret = regmap_write(st->map, INV_ICM42670_REG_FIFO_CONFIG1,
-			   INV_ICM42670_FIFO_CONFIG1_STREAM);
-	if (ret)
-		goto out_unlock;
-
-	/* workaround: first read of FIFO count after reset is always 0 */
-	ret = regmap_bulk_read(st->map, INV_ICM42600_REG_FIFO_COUNT, st->buffer, 2);
+			   INV_ICM42670_FIFO_CONFIG1_BYPASS);
 	if (ret)
 		goto out_unlock;
 
 out_on:
-	/* increase FIFO on counter */
+	/* increase data streaming on counter */
 	st->fifo.on++;
 out_unlock:
 	mutex_unlock(&st->lock);
@@ -342,32 +332,20 @@ static int inv_icm42600_buffer_predisable(struct iio_dev *indio_dev)
 
 	mutex_lock(&st->lock);
 
-	/* exit if there are several sensors using the FIFO */
+	/* exit if there are several sensors using the data streaming */
 	if (st->fifo.on > 1) {
 		ret = 0;
 		goto out_off;
 	}
 
-	/* set FIFO in bypass mode */
-	ret = regmap_write(st->map, INV_ICM42600_REG_FIFO_CONFIG,
-			   INV_ICM42600_FIFO_CONFIG_BYPASS);
-	if (ret)
-		goto out_unlock;
-
-	/* flush FIFO data */
-	ret = regmap_write(st->map, INV_ICM42600_REG_SIGNAL_PATH_RESET,
-			   INV_ICM42600_SIGNAL_PATH_RESET_FIFO_FLUSH);
-	if (ret)
-		goto out_unlock;
-
-	/* disable FIFO threshold interrupt */
-	ret = regmap_update_bits(st->map, INV_ICM42600_REG_INT_SOURCE0,
-				 INV_ICM42600_INT_SOURCE0_FIFO_THS_INT1_EN, 0);
+	/* disable DATA_RDY interrupt */
+	ret = regmap_update_bits(st->map, INV_ICM42670_REG_INT_SOURCE0,
+				 INV_ICM42600_INT_SOURCE0_UI_DRDY_INT1_EN, 0);
 	if (ret)
 		goto out_unlock;
 
 out_off:
-	/* decrease FIFO on counter */
+	/* decrease data streaming on counter */
 	st->fifo.on--;
 out_unlock:
 	mutex_unlock(&st->lock);
@@ -565,29 +543,20 @@ int inv_icm42600_buffer_init(struct inv_icm42600_state *st)
 	int ret;
 
 	/*
-	 * Default FIFO configuration (bits 6 to 4)
+	 * Default interface configuration (bits 6 to 4)
 	 * - sensor data in little endian
-	 * - FIFO count in records
-	 * - FIFO count in big endian
 	 */
-	val = INV_ICM42600_INTF_CONFIG0_FIFO_COUNT_ENDIAN |
-	      INV_ICM42600_INTF_CONFIG0_FIFO_COUNT_REC;
+	val = 0; // リトルエンディアン設定
 	ret = regmap_update_bits(st->map, INV_ICM42670_REG_INTF_CONFIG0,
 				 GENMASK(6, 4), val);
 	if (ret)
 		return ret;
 
-	/* Set FIFO count threshold to 1 */
-	ret = regmap_write(st->map, INV_ICM42670_REG_FIFO_CONFIG2,
-			   INV_ICM42670_FIFO_CONFIG2_COUNT_1);
+	/* disable FIFO, set to bypass mode */
+	ret = regmap_write(st->map, INV_ICM42600_REG_FIFO_CONFIG,
+			   INV_ICM42600_FIFO_CONFIG_BYPASS);
 	if (ret)
 		return ret;
 
-	/*Enable accel/gyro packets to FIFO */
-	ret = regmap_write(st->map, INV_ICM42670_MADDR_W, INV_ICM42670_FIFO_CONFIG5);
-	if (ret)
-		return ret;
-	val = INV_ICM42670_FIFO_CONFIG5_ACCEL_EN |
-	      INV_ICM42670_FIFO_CONFIG5_GYRO_EN;
-	return regmap_write(st->map, INV_ICM42670_M_W, val);
+	return 0;
 }

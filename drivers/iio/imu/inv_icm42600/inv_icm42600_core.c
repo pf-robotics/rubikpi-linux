@@ -443,6 +443,10 @@ static irqreturn_t inv_icm42600_irq_handler(int irq, void *_data)
 	struct device *dev = regmap_get_device(st->map);
 	unsigned int status;
 	int ret;
+	u8 data[12]; // 加速度・ジャイロの6つのレジスタ (x, y, z) × 2バイト
+	int16_t accel_data[3], gyro_data[3];
+	struct iio_dev *indio_dev = st->indio_dev;
+	uint64_t timestamp = st->timestamp.accel;
 
 	mutex_lock(&st->lock);
 
@@ -450,20 +454,41 @@ static irqreturn_t inv_icm42600_irq_handler(int irq, void *_data)
 	if (ret)
 		goto out_unlock;
 
-	/* FIFO full */
-	if (status & INV_ICM42600_INT_STATUS_FIFO_FULL)
-		dev_warn(dev, "FIFO full data lost!\n");
-
-	/* FIFO threshold reached */
-	if (status & INV_ICM42600_INT_STATUS_FIFO_THS) {
-		ret = inv_icm42600_buffer_fifo_read(st, 0);
+	/* DATA ready interrupt */
+	if (status & INV_ICM42600_INT_STATUS_DATA_RDY) {
+		/* 加速度とジャイロのデータを一度に読み取る */
+		ret = regmap_bulk_read(st->map, INV_ICM42600_REG_ACCEL_DATA_X, data, sizeof(data));
 		if (ret) {
-			dev_err(dev, "FIFO read error %d\n", ret);
+			dev_err(dev, "Register read error %d\n", ret);
 			goto out_unlock;
 		}
-		ret = inv_icm42600_buffer_fifo_parse(st);
-		if (ret)
-			dev_err(dev, "FIFO parsing error %d\n", ret);
+
+		/* バイトオーダー変換 (リトルエンディアンで設定済みなのでそのまま読める) */
+		accel_data[0] = ((int16_t)data[0]) | (((int16_t)data[1]) << 8);
+		accel_data[1] = ((int16_t)data[2]) | (((int16_t)data[3]) << 8);
+		accel_data[2] = ((int16_t)data[4]) | (((int16_t)data[5]) << 8);
+		
+		gyro_data[0] = ((int16_t)data[6]) | (((int16_t)data[7]) << 8);
+		gyro_data[1] = ((int16_t)data[8]) | (((int16_t)data[9]) << 8);
+		gyro_data[2] = ((int16_t)data[10]) | (((int16_t)data[11]) << 8);
+
+		/* データを IIO バッファに送信 */
+		if (indio_dev && iio_buffer_enabled(indio_dev)) {
+			struct {
+				int16_t channels[6];
+				int64_t ts __aligned(8);
+			} scan;
+
+			scan.channels[0] = accel_data[0];
+			scan.channels[1] = accel_data[1];
+			scan.channels[2] = accel_data[2];
+			scan.channels[3] = gyro_data[0];
+			scan.channels[4] = gyro_data[1];
+			scan.channels[5] = gyro_data[2];
+			scan.ts = timestamp;
+
+			iio_push_to_buffers(indio_dev, &scan);
+		}
 	}
 
 out_unlock:
