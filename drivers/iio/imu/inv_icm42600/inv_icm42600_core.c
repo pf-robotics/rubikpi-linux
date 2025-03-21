@@ -458,7 +458,7 @@ static irqreturn_t inv_icm42600_irq_handler(int irq, void *_data)
 
 	/* DATA ready interrupt */
 	if (status) {
-		ret = regmap_bulk_read(st->map, INV_ICM42600_REG_ACCEL_DATA_X, data, sizeof(data));
+		ret = regmap_bulk_read(st->map, INV_ICM42670_REG_ACCEL_DATA_X, data, sizeof(data));
 		if (ret) {
 			dev_err(dev, "Register read error %d\n", ret);
 			goto out_unlock;
