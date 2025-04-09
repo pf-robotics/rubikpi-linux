@@ -65,13 +65,13 @@
 	        compatible = "invensense,icm42670";
 		reg = <0>;
 	        interrupt-parent = <&tlmm>;
-	        interrupts = <102 IRQ_TYPE_EDGE_RISING>;
+	        interrupts = <44 IRQ_TYPE_EDGE_RISING>;
 	        interrupt-names = "int1";
 	        vdd-supply = <&vreg_l4c_1p62>;
 	        vddio-supply = <&vreg_l5c_1p62>;
 	        pinctrl-names = "default";
-	        pinctrl-0 = <&gpio_102_pins>;
-	        spi-max-frequency = <1000000>;
+	        pinctrl-0 = <&gpio_44_pins>;
+	        spi-max-frequency = <5000000>;
 	        spi-cpha;
 	        spi-cpol;
     };
