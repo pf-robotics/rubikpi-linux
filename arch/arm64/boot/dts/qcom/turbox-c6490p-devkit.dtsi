@@ -401,7 +401,7 @@
 		function = "mi2s2_ws";
 	};
 
-	mi2s2_data0_sleep: mi2s-data0-sleep {
+	mi2s2_data0_sleep: mi2s2-data0-sleep {
 		pins = "gpio102";
 		function = "gpio";
 		drive-strength = <2>;
