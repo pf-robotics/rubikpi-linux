@@ -95,7 +95,7 @@ void serial_trace_log(struct device *dev, const char *fmt, ...)
 #define STALE_TIMEOUT			16
 #define DEFAULT_BITS_PER_CHAR		10
 #define GENI_UART_CONS_PORTS		1
-#define GENI_UART_PORTS			4
+#define GENI_UART_PORTS			12
 #define DEF_FIFO_DEPTH_WORDS		16
 #define DEF_TX_WM			2
 #define DEF_FIFO_WIDTH_BITS		32
@@ -201,6 +201,14 @@ static struct qcom_geni_serial_port qcom_geni_uart_ports[GENI_UART_PORTS] = {
 			.line = 3,
 		},
 	},
+	[4] = { .uport = { .iotype = UPIO_MEM, .ops = &qcom_geni_uart_pops, .flags = UPF_BOOT_AUTOCONF, .line = 4, }, },
+	[5] = { .uport = { .iotype = UPIO_MEM, .ops = &qcom_geni_uart_pops, .flags = UPF_BOOT_AUTOCONF, .line = 5, }, },
+	[6] = { .uport = { .iotype = UPIO_MEM, .ops = &qcom_geni_uart_pops, .flags = UPF_BOOT_AUTOCONF, .line = 6, }, },
+	[7] = { .uport = { .iotype = UPIO_MEM, .ops = &qcom_geni_uart_pops, .flags = UPF_BOOT_AUTOCONF, .line = 7, }, },
+	[8] = { .uport = { .iotype = UPIO_MEM, .ops = &qcom_geni_uart_pops, .flags = UPF_BOOT_AUTOCONF, .line = 8, }, },
+	[9] = { .uport = { .iotype = UPIO_MEM, .ops = &qcom_geni_uart_pops, .flags = UPF_BOOT_AUTOCONF, .line = 9, }, },
+	[10] = { .uport = { .iotype = UPIO_MEM, .ops = &qcom_geni_uart_pops, .flags = UPF_BOOT_AUTOCONF, .line = 10, }, },
+	[11] = { .uport = { .iotype = UPIO_MEM, .ops = &qcom_geni_uart_pops, .flags = UPF_BOOT_AUTOCONF, .line = 11, }, },
 };
 
 static struct qcom_geni_serial_port qcom_geni_console_port = {

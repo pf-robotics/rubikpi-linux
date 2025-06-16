@@ -17,6 +17,8 @@
 #include <linux/regmap.h>
 
 #include <linux/iio/iio.h>
+#include <linux/iio/buffer.h>
+#include <linux/iio/trigger_consumer.h>
 
 #include "inv_icm42600.h"
 #include "inv_icm42600_buffer.h"
@@ -417,10 +419,10 @@ static int inv_icm42600_setup(struct inv_icm42600_state *st,
 	// if (ret)
 	// 	return ret;
 
-	/* sensor data in big-endian (default) */
-	ret = regmap_update_bits(st->map, INV_ICM42600_REG_INTF_CONFIG0,
+	/* sensor data in little-endian */
+	ret = regmap_update_bits(st->map, INV_ICM42670_REG_INTF_CONFIG0,
 				 INV_ICM42600_INTF_CONFIG0_SENSOR_DATA_ENDIAN,
-				 INV_ICM42600_INTF_CONFIG0_SENSOR_DATA_ENDIAN);
+				 0x00);
 	if (ret)
 		return ret;
 
@@ -431,8 +433,8 @@ static irqreturn_t inv_icm42600_irq_timestamp(int irq, void *_data)
 {
 	struct inv_icm42600_state *st = _data;
 
-	st->timestamp.gyro = iio_get_time_ns(st->indio_gyro);
-	st->timestamp.accel = iio_get_time_ns(st->indio_accel);
+	st->timestamp.gyro = iio_get_time_ns(st->indio_dev);
+	st->timestamp.accel = iio_get_time_ns(st->indio_dev);
 
 	return IRQ_WAKE_THREAD;
 }
@@ -443,27 +445,49 @@ static irqreturn_t inv_icm42600_irq_handler(int irq, void *_data)
 	struct device *dev = regmap_get_device(st->map);
 	unsigned int status;
 	int ret;
+	u8 data[12];
+	int16_t accel_data[3], gyro_data[3];
+	struct iio_dev *indio_dev = st->indio_dev;
+	uint64_t timestamp = st->timestamp.accel;
 
 	mutex_lock(&st->lock);
 
-	ret = regmap_read(st->map, INV_ICM42670_REG_INT_STATUS, &status);
+	ret = regmap_read(st->map, INV_ICM42670_REG_INT_STATUS_DRDY, &status);
 	if (ret)
 		goto out_unlock;
 
-	/* FIFO full */
-	if (status & INV_ICM42600_INT_STATUS_FIFO_FULL)
-		dev_warn(dev, "FIFO full data lost!\n");
-
-	/* FIFO threshold reached */
-	if (status & INV_ICM42600_INT_STATUS_FIFO_THS) {
-		ret = inv_icm42600_buffer_fifo_read(st, 0);
+	/* DATA ready interrupt */
+	if (status) {
+		ret = regmap_bulk_read(st->map, INV_ICM42670_REG_ACCEL_DATA_X, data, sizeof(data));
 		if (ret) {
-			dev_err(dev, "FIFO read error %d\n", ret);
+			dev_err(dev, "Register read error %d\n", ret);
 			goto out_unlock;
 		}
-		ret = inv_icm42600_buffer_fifo_parse(st);
-		if (ret)
-			dev_err(dev, "FIFO parsing error %d\n", ret);
+
+		accel_data[0] = ((int16_t)data[0]) | (((int16_t)data[1]) << 8);
+		accel_data[1] = ((int16_t)data[2]) | (((int16_t)data[3]) << 8);
+		accel_data[2] = ((int16_t)data[4]) | (((int16_t)data[5]) << 8);
+
+		gyro_data[0] = ((int16_t)data[6]) | (((int16_t)data[7]) << 8);
+		gyro_data[1] = ((int16_t)data[8]) | (((int16_t)data[9]) << 8);
+		gyro_data[2] = ((int16_t)data[10]) | (((int16_t)data[11]) << 8);
+
+		if (indio_dev && iio_buffer_enabled(indio_dev)) {
+			struct {
+				int16_t channels[6];
+				int64_t ts __aligned(8);
+			} scan;
+
+			scan.channels[0] = accel_data[0];
+			scan.channels[1] = accel_data[1];
+			scan.channels[2] = accel_data[2];
+			scan.channels[3] = gyro_data[0];
+			scan.channels[4] = gyro_data[1];
+			scan.channels[5] = gyro_data[2];
+			scan.ts = timestamp;
+
+			iio_push_to_buffers(indio_dev, &scan);
+		}
 	}
 
 out_unlock:
@@ -660,14 +684,11 @@ int inv_icm42600_core_probe(struct regmap *regmap, int chip, int irq,
 	ret = inv_icm42600_buffer_init(st);
 	if (ret)
 		return ret;
-
-	st->indio_gyro = inv_icm42600_gyro_init(st);
-	if (IS_ERR(st->indio_gyro))
-		return PTR_ERR(st->indio_gyro);
-
-	st->indio_accel = inv_icm42600_accel_init(st);
-	if (IS_ERR(st->indio_accel))
-		return PTR_ERR(st->indio_accel);
+	
+	/* Initialize the unified IMU device */
+	st->indio_dev = inv_icm42600_imu_init(st);
+	if (IS_ERR(st->indio_dev))
+		return PTR_ERR(st->indio_dev);
 
 	ret = inv_icm42600_irq_init(st, irq, irq_type, open_drain);
 	if (ret)
