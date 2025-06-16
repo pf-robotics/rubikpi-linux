@@ -8,12 +8,9 @@
 	};
 
 	aliases {
-		serial2 = &uart2;
-		serial3 = &uart3;
-		serial6 = &uart6;
-		serial7 = &uart7;
-		serial8 = &uart8;
-		serial12 = &uart12;
+		/delete-property/ i2c2;
+		serial2 = &uart7;
+		serial3 = &uart2;
 	};
 
 	usb_hub0_1p8_vreg: usb_hub0_1p8_vreg {
@@ -753,10 +750,10 @@
 	};
 };
 
-&i2c2 {
-	clock-frequency = <100000>;
-	status = "okay";
-};
+// &i2c2 {
+// 	clock-frequency = <100000>;
+// 	status = "okay";
+// };
 
 &i2c12 {
 	status = "disabled";
