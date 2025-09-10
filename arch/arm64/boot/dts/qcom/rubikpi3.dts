@@ -20,27 +20,20 @@
 	qcom,board-id = <32 0xb>, <32 0x60b>;
 };
 
-// &uart2 {
-// 	status = "okay";
-// };
+&uart2 {
+	status = "okay";
+};
 
 &uart6 {
-  status = "okay";
+	status = "okay";
 };
 
 &uart8 {
-  status = "okay";
+	status = "okay";
 };
 
 &i2c1 {
 	status = "okay";
-
-	rpi-sense@46 {
-		compatible = "rpi,rpi-sense";
-		reg = <0x46>;
-		keys-int-gpios = <&tlmm 26 1>;
-		status = "okay";
-	};
 
 	lsm9ds1-magn@1c {
 		compatible = "st,lsm9ds1-magn";
@@ -80,7 +73,7 @@
 	        pinctrl-names = "default";
 	        pinctrl-0 = <&gpio_44_pins>;
 	        spi-max-frequency = <5000000>;
-	        spi-cpha;
-	        spi-cpol;
+        spi-cpha;
+        spi-cpol;
     };
 };
