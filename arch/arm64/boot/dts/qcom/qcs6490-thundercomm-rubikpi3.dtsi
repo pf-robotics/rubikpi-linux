@@ -791,6 +791,14 @@
 		 */
 		bias-pull-up;
 	};
+
+	gpio_44_pins: gpio_44_pins {
+		pins = "gpio44";
+		pinctrl-single,pins = <44 0x1>;
+		function = "gpio";
+		drive-strength = <6>;
+		bias-pull-up;
+	};
 };
 
 &uart5 {
@@ -2177,15 +2185,16 @@
 	status = "okay";
 };
 
+&uart6 {
+  status = "okay";
+};
+
+&uart8 {
+  status = "okay";
+};
+
 &i2c1 {
 	status = "okay";
-
-	rpi-sense@46 {
-		compatible = "rpi,rpi-sense";
-		reg = <0x46>;
-		keys-int-gpios = <&tlmm 26 1>;
-		status = "okay";
-	};
 
 	lsm9ds1-magn@1c {
 		compatible = "st,lsm9ds1-magn";
@@ -2213,10 +2222,19 @@
 };
 
 &spi12 {
-	status = "okay";
-	spidev@0 {
-		compatible = "qcom,spidev";
-		spi-max-frequency = <50000000>;
+        status = "okay";
+        icm42670: icm42670@0 {
+	        compatible = "invensense,icm42670";
 		reg = <0>;
-	};
+	        interrupt-parent = <&tlmm>;
+	        interrupts = <44 IRQ_TYPE_EDGE_RISING>;
+	        interrupt-names = "int1";
+	        vdd-supply = <&vreg_l4c_1p62>;
+	        vddio-supply = <&vreg_l5c_1p62>;
+	        pinctrl-names = "default";
+	        pinctrl-0 = <&gpio_44_pins>;
+	        spi-max-frequency = <5000000>;
+	        spi-cpha;
+	        spi-cpol;
+    };
 };
