@@ -88,7 +88,7 @@
 					<&lpass_qua_mi2s_ws_sleep>, <&lpass_qua_mi2s_data0_sleep>,
 					<&lpass_qua_mi2s_data1_sleep>, <&lpass_qua_mi2s_data2_sleep>,
 					<&lpass_qua_mi2s_data3_sleep>, <&lpass_lpi_i2s1_clk_sleep>,
-					<&lpass_lpi_i2s1_ws_sleep>, <&lpass_lpi_i2s1_data0_sleep>,
+					<&lpass_lpi_i2s1_data0_sleep>,
 					<&lpass_lpi_i2s1_data1_sleep>, <&mi2s2_sclk_sleep>,
 					<&mi2s2_ws_sleep>, <&mi2s2_data0_sleep>, <&mi2s2_data1_sleep>,
 					<&mi2s2_mclk>;
@@ -98,7 +98,7 @@
 					<&lpass_qua_mi2s_ws>, <&lpass_qua_mi2s_data0>,
 					<&lpass_qua_mi2s_data1>, <&lpass_qua_mi2s_data2>,
 					<&lpass_qua_mi2s_data3>, <&lpass_lpi_i2s1_clk>,
-					<&lpass_lpi_i2s1_ws>, <&lpass_lpi_i2s1_data0>,
+					<&lpass_lpi_i2s1_data0>,
 					<&lpass_lpi_i2s1_data1>, <&mi2s2_sclk>,
 					<&mi2s2_ws>, <&mi2s2_data0>, <&mi2s2_data1>, <&mi2s2_mclk>;
 		pinctrl-2 = <&mi2s0_data0_sleep>, <&mi2s0_data1_sleep>, <&mi2s0_mclk>,
@@ -107,7 +107,7 @@
 					<&lpass_qua_mi2s_ws_sleep>, <&lpass_qua_mi2s_data0_sleep>,
 					<&lpass_qua_mi2s_data1_sleep>, <&lpass_qua_mi2s_data2_sleep>,
 					<&lpass_qua_mi2s_data3_sleep>, <&lpass_lpi_i2s1_clk_sleep>,
-					<&lpass_lpi_i2s1_ws_sleep>, <&lpass_lpi_i2s1_data0_sleep>,
+					<&lpass_lpi_i2s1_data0_sleep>,
 					<&lpass_lpi_i2s1_data1_sleep>, <&mi2s2_sclk_sleep>,
 					<&mi2s2_ws_sleep>, <&mi2s2_data0_sleep>, <&mi2s2_data1_sleep>,
 					<&mi2s2_mclk>;
@@ -1691,7 +1691,6 @@
 		compatible = "regulator-fixed";
 		regulator-name = "vreg_usb_hub0_rest";
 		gpio = <&tlmm 136 0>;
-		vin-supply = <&vreg_usb_eth_1p8>;
 		regulator-min-microvolt = <1800000>;
 		regulator-max-microvolt = <1800000>;
 		enable-active-high;
