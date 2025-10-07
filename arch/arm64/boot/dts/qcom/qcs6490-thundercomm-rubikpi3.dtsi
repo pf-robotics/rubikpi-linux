@@ -1448,10 +1448,12 @@
 		function = "i2s1_clk";
 	};
 
+	/*
 	lpass_lpi_i2s1_ws: lpi-i2s1-ws-state {
 		pins = "gpio7";
 		function = "i2s1_ws";
 	};
+	*/
 
 	lpass_lpi_i2s1_data0: lpi-i2s1-data0-state {
 		pins = "gpio8";
@@ -1672,6 +1674,7 @@
 		regulator-enable-ramp-delay = <50000>;
 	};
 
+	/*
 	vreg_usb_eth_1p8: vreg_usb_eth_1p8 {
 		compatible = "regulator-fixed";
 		regulator-name = "vreg_usb_eth_1p8";
@@ -1682,6 +1685,7 @@
 		enable-active-high;
 		regulator-enable-ramp-delay = <50000>;
 	};
+	*/
 
 	vreg_usb_hub0_rest: vreg_usb_hub0_rest {
 		compatible = "regulator-fixed";
