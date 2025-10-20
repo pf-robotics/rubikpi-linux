@@ -89,8 +89,8 @@
 					<&lpass_qua_mi2s_data1_sleep>, <&lpass_qua_mi2s_data2_sleep>,
 					<&lpass_qua_mi2s_data3_sleep>, <&lpass_lpi_i2s1_clk_sleep>,
 					<&lpass_lpi_i2s1_ws_sleep>, <&lpass_lpi_i2s1_data0_sleep>,
-					<&lpass_lpi_i2s1_data1_sleep>, <&mi2s2_sclk_sleep>,
-					<&mi2s2_ws_sleep>, <&mi2s2_data0_sleep>, <&mi2s2_data1_sleep>;
+					<&mi2s2_sclk_sleep>,
+					<&mi2s2_ws_sleep>, <&mi2s2_data1_sleep>;
 		pinctrl-1 = <&mi2s0_data0>, <&mi2s0_data1>, <&mi2s0_mclk>,
 					<&mi2s0_sclk>, <&mi2s0_ws>,
 					<&lpass_ext_mas_clk1_a>, <&lpass_qua_mi2s_sclk>,
@@ -98,8 +98,8 @@
 					<&lpass_qua_mi2s_data1>, <&lpass_qua_mi2s_data2>,
 					<&lpass_qua_mi2s_data3>, <&lpass_lpi_i2s1_clk>,
 					<&lpass_lpi_i2s1_ws>, <&lpass_lpi_i2s1_data0>,
-					<&lpass_lpi_i2s1_data1>, <&mi2s2_sclk>,
-					<&mi2s2_ws>, <&mi2s2_data0>, <&mi2s2_data1>;
+					<&mi2s2_sclk>,
+					<&mi2s2_ws>, <&mi2s2_data1>;
 		pinctrl-2 = <&mi2s0_data0_sleep>, <&mi2s0_data1_sleep>, <&mi2s0_mclk>,
 					<&mi2s0_sclk_sleep>, <&mi2s0_ws_sleep>,
 					<&lpass_ext_mas_clk1_a_sleep>, <&lpass_qua_mi2s_sclk_sleep>,
@@ -107,8 +107,8 @@
 					<&lpass_qua_mi2s_data1_sleep>, <&lpass_qua_mi2s_data2_sleep>,
 					<&lpass_qua_mi2s_data3_sleep>, <&lpass_lpi_i2s1_clk_sleep>,
 					<&lpass_lpi_i2s1_ws_sleep>, <&lpass_lpi_i2s1_data0_sleep>,
-					<&lpass_lpi_i2s1_data1_sleep>, <&mi2s2_sclk_sleep>,
-					<&mi2s2_ws_sleep>, <&mi2s2_data0_sleep>, <&mi2s2_data1_sleep>;
+					<&mi2s2_sclk_sleep>,
+					<&mi2s2_ws_sleep>, <&mi2s2_data1_sleep>;
 
 		tdm-capture-dai-link {
 			link-name = "TDM-LPAIF-TX-PRIMARY";
@@ -1266,12 +1266,14 @@
 	};
 	*/
 
+        /*
 	mi2s2_data0: mi2s2-data0-state {
 		pins = "gpio102";
 		function = "mi2s2_data0";
 		drive-strength = <8>;
 		bias-disable;
 	};
+        */
 
 	mi2s2_data1: mi2s2-data1-state {
 		pins = "gpio104";
@@ -1306,6 +1308,7 @@
 	};
 	*/
 
+        /*
 	mi2s2_data0_sleep: mi2s2-data0-sleep {
 		pins = "gpio102";
 		function = "gpio";
@@ -1313,6 +1316,7 @@
 		bias-pull-down;
 		input-enable;
 	};
+        */
 
 	mi2s2_data1_sleep: mi2s2-data1-sleep {
 		pins = "gpio104";
@@ -1460,10 +1464,12 @@
 		function = "i2s1_data";
 	};
 
+        /*
 	lpass_lpi_i2s1_data1: lpi-i2s1-data1-state {
 		pins = "gpio9";
 		function = "i2s1_data";
 	};
+        */
 
 	lpass_lpi_i2s1_clk_sleep: lpi-i2s1-clk-sleep {
 		pins = "gpio6";
@@ -1489,6 +1495,7 @@
 		input-enable;
 	};
 
+        /*
 	lpass_lpi_i2s1_data1_sleep: lpi-i2s1-data1-sleep {
 		pins = "gpio9";
 		function = "i2s1_data";
@@ -1496,6 +1503,7 @@
 		bias-pull-down;
 		input-enable;
 	};
+        */
 };
 
 &gcc {
