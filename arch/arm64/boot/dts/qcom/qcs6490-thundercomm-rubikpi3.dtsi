@@ -849,7 +849,7 @@
 	snps,dis-u2-entry-quirk;
 	snps,dis-u1-entry-quirk;
 
-	dr_mode = "otg";
+	dr_mode = "host";
 	usb-role-switch;
 	qcom,enable-rt;
 	wakeup-source;
