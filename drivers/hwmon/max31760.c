@@ -540,6 +540,12 @@ static int max31760_probe(struct i2c_client *client)
 
 	max31760_create_lut_nodes(state);
 
+	/* Disable fan2 enable (clear CR3 BIT(1)) so manual PWM takes effect
+	 * by default.  Clearing the bit disables TACH/drive for channel 2.
+	 */
+	ret = regmap_clear_bits(state->regmap, REG_CR3, BIT(1));
+	if (ret)
+		dev_err_probe(dev,ret, "failed to clear fan2 enable (CR3 bit1): %d\n", ret);
 	hwmon_dev = devm_hwmon_device_register_with_info(dev, client->name,
 							 state,
 							 &max31760_chip_info,
