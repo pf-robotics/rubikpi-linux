@@ -2228,10 +2228,12 @@
 
 &uart2 {
 	status = "okay";
+	pinctrl-0 = <&qup_uart2_tx>, <&qup_uart2_rx>;
 };
 
 &uart6 {
-  status = "okay";
+	status = "okay";
+	pinctrl-0 = <&qup_uart6_tx>, <&qup_uart6_rx>;
 };
 
 &uart8 {
