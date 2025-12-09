@@ -2011,7 +2011,8 @@
 };
 
 &uart7 {
-	status = "okay";
+	status = "disabled";
+	/*
 	/delete-property/interrupts;
 	interrupts-extended = <&intc GIC_SPI 608 IRQ_TYPE_LEVEL_HIGH>,
 				<&tlmm 31 IRQ_TYPE_EDGE_FALLING>;
@@ -2032,6 +2033,7 @@
 		vddio-supply = <&vreg_sdio_wifi_1p8>;
 		max-speed = <3000000>;
 	};
+	*/
 };
 
 &pm8350c_gpios {
