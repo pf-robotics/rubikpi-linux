@@ -2010,6 +2010,12 @@
 	};
 };
 
+/*
+ * uart7 (QUP0 SE7) is disabled because devcfg.mbn does not grant Linux
+ * access to this Serial Engine. Enabling it causes "synchronous external
+ * abort" kernel panic during qcom_geni_serial_probe.
+ * To re-enable Bluetooth, devcfg.mbn must be modified to allow access.
+ */
 &uart7 {
 	status = "disabled";
 	/*
