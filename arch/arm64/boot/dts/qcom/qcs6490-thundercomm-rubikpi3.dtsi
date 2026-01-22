@@ -2195,9 +2195,9 @@
 	status = "okay";
 };
 
-// &uart6 {
-//   status = "okay";
-// };
+&uart6 {
+  status = "okay";
+};
 
 &uart8 {
   status = "okay";
