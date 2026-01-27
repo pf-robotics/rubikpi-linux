@@ -233,9 +233,6 @@ static unsigned int qcom_geni_serial_get_mctrl(struct uart_port *uport)
 
 	if (uart_console(uport)) {
 		mctrl |= TIOCM_CTS;
-	} else if (!port->setup) {
-		/* Return safe defaults if port hasn't been setup yet */
-		mctrl |= TIOCM_CTS;
 	} else {
 		geni_ios = readl(uport->membase + SE_GENI_IOS);
 		if (!(geni_ios & IO2_DATA_IN) || port->loopback)
@@ -254,10 +251,6 @@ static void qcom_geni_serial_set_mctrl(struct uart_port *uport,
 	struct qcom_geni_serial_port *port = to_dev_port(uport);
 
 	if (uart_console(uport))
-		return;
-
-	/* Don't access hardware if port hasn't been setup yet */
-	if (!port->setup)
 		return;
 
 	if (mctrl & TIOCM_LOOP)
@@ -1242,20 +1235,9 @@ static int qcom_geni_serial_startup(struct uart_port *uport)
 	struct qcom_geni_serial_port *port = to_dev_port(uport);
 
 	if (!port->setup) {
-		/*
-		 * Ensure resources are enabled before port setup.
-		 * For non-console UARTs, PM callback may not have been
-		 * called yet when startup is invoked.
-		 */
-		geni_icc_enable(&port->se);
-		geni_se_resources_on(&port->se);
-
 		ret = qcom_geni_serial_port_setup(uport);
-		if (ret) {
-			geni_se_resources_off(&port->se);
-			geni_icc_disable(&port->se);
+		if (ret)
 			return ret;
-		}
 	}
 	enable_irq(uport->irq);
 
