@@ -184,6 +184,15 @@ uint mscs_offload = false;
 #endif /* WL_REASSOC */
 module_param(mscs_offload, uint, 0660);
 
+/* Disable SAE (WPA3) authentication and fall back to WPA2-PSK.
+ * The BCM43456C5 firmware (extsae) does not forward SAE response frames
+ * from the AP to the host, so the SAE handshake cannot complete.
+ * This causes repeated authentication failures and can eventually hang
+ * the WiFi chip.  Set to 0 via module parameter to re-enable SAE.
+ */
+uint disable_sae = true;
+module_param(disable_sae, uint, 0660);
+
 static struct device *cfg80211_parent_dev = NULL;
 static struct bcm_cfg80211 *g_bcmcfg = NULL;
 /*
@@ -6062,6 +6071,15 @@ wl_set_multi_akm(struct net_device *dev, struct bcm_cfg80211 *cfg,
 	}
 
 	WL_DBG(("SYNA: MultiAKM combination 0x%x\n", multi_akm));
+
+	/* If SAE is disabled, strip it from multi-AKM and let the caller
+	 * fall through to single-AKM WPA2-PSK handling instead.
+	 */
+	if (disable_sae && (multi_akm & WPA3_AUTH_SAE_PSK)) {
+		WL_INFORM(("SAE disabled, rejecting multi-AKM 0x%x\n", multi_akm));
+		return -EINVAL;
+	}
+
 	/* Currently supplicant layer multi-AKM is support is restricted to
 	* SAE and WPA2PSK for seamless roaming
 	*/
@@ -6242,9 +6260,23 @@ wl_set_key_mgmt(struct net_device *dev, struct cfg80211_connect_params *sme,
 #endif /* WL_OWE */
 #if defined(WL_SAE) || defined(WL_CLIENT_SAE)
 				case WLAN_AKM_SUITE_SAE:
+					if (disable_sae) {
+						WL_INFORM(("SAE disabled, falling back to WPA2-PSK\n"));
+						val = WPA2_AUTH_PSK;
+						break;
+					}
+					val = wl_rsn_akm_wpa_auth_lookup(sme->crypto.akm_suites[0]);
+					break;
 #endif /* WL_SAE || WL_CLIENT_SAE */
 #ifdef WL_SAE_FT
 				case WLAN_AKM_SUITE_FT_OVER_SAE:
+					if (disable_sae) {
+						WL_INFORM(("SAE disabled, falling back to WPA2-PSK\n"));
+						val = WPA2_AUTH_PSK;
+						break;
+					}
+					val = wl_rsn_akm_wpa_auth_lookup(sme->crypto.akm_suites[0]);
+					break;
 #endif /* WL_SAE_FT */
 				case WLAN_AKM_SUITE_DPP:
 				case WLAN_AKM_SUITE_FT_8021X_SHA384:
@@ -27648,28 +27680,64 @@ wl_inform_sae_target_bss(struct bcm_cfg80211 *cfg,
 	wl_bss_info_v109_t *bi = NULL;
 	char *buf;
 	int err;
+
+	/* First check if BSS is already in cfg80211 cache */
+	bss = CFG80211_GET_BSS(wiphy, NULL, (u8 *)evt_data->bssid.octet,
+		evt_data->ssid.SSID, MIN(evt_data->ssid.SSID_len, DOT11_MAX_SSID_LEN));
+	if (bss) {
+		cfg80211_put_bss(wiphy, bss);
+		return;
+	}
+
 	buf = (char *)MALLOCZ(cfg->osh, WLC_IOCTL_MAXLEN);
 	if (buf == NULL) {
 		WL_ERR(("failed to allocate memory\n"));
-		goto out;
+		return;
 	}
+
+	/* Try firmware iovar first */
 	err = wldev_iovar_getbuf_bsscfg(ndev, "target_bss_info",
 		NULL, 0, buf, WLC_IOCTL_MAXLEN, bsscfgidx, &cfg->ioctl_buf_sync);
-	if (err != BCME_OK) {
-		WL_ERR(("Could not get target_bss_info %d\n", err));
-		goto out;
+	if (err == BCME_OK) {
+		bi = (wl_bss_info_v109_t *)(buf);
+	} else {
+		/* Fallback: search scan cache for the target BSSID.
+		 * This handles firmware (e.g. extsae) that does not
+		 * support the target_bss_info iovar.
+		 */
+		wl_scan_results_v109_t *bss_list;
+		wl_bss_info_v109_t *scan_bi = NULL;
+		s32 i;
+
+		WL_INFORM(("target_bss_info unsupported (%d), "
+			"searching scan cache\n", err));
+		mutex_lock(&cfg->scan_sync);
+		bss_list = cfg->bss_list;
+		if (bss_list) {
+			scan_bi = next_bss(bss_list, scan_bi);
+			for_each_bss(bss_list, scan_bi, i) {
+				if (!memcmp(&scan_bi->BSSID,
+					&evt_data->bssid.octet, ETHER_ADDR_LEN)) {
+					bi = scan_bi;
+					break;
+				}
+			}
+		}
+		mutex_unlock(&cfg->scan_sync);
+		if (!bi) {
+			WL_ERR(("SAE target BSS " MACDBG " not found "
+				"in scan cache\n",
+				MAC2STRDBG(evt_data->bssid.octet)));
+		}
 	}
-	bi = (wl_bss_info_v109_t *)(buf);
-	bss = CFG80211_GET_BSS(wiphy, NULL, (u8 *)evt_data->bssid.octet,
-		evt_data->ssid.SSID, MIN(evt_data->ssid.SSID_len, DOT11_MAX_SSID_LEN));
-	if (!bss) {
+
+	if (bi) {
 		err = wl_inform_single_bss(cfg, bi, false);
 		if (unlikely(err)) {
 			WL_ERR(("Could not add the AP info into cache\n"));
-			goto out;
 		}
 	}
-out:
+
 	MFREE(cfg->osh, buf, WLC_IOCTL_MAXLEN);
 }
 
