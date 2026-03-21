@@ -3,7 +3,7 @@
 	url = https://github.com/rubikpi-ai/rubikpi-script.git
 [submodule "arch/arm64/boot/dts/thundercomm"]
 	path = arch/arm64/boot/dts/thundercomm
-	url = https://github.com/rubikpi-ai/device-tree.git
+	url = https://github.com/pf-robotics/rubikpi-device-tree.git
 [submodule "techpack/display"]
 	path = techpack/display
 	url = https://github.com/rubikpi-ai/display-drivers.git
