@@ -4,6 +4,7 @@
 [submodule "arch/arm64/boot/dts/thundercomm"]
 	path = arch/arm64/boot/dts/thundercomm
 	url = git@github.com:pf-robotics/rubikpi-device-tree.git
+	branch = 0327_setaku_tof
 [submodule "techpack/display"]
 	path = techpack/display
 	url = https://github.com/rubikpi-ai/display-drivers.git
