@@ -90,7 +90,8 @@
 					<&lpass_qua_mi2s_data3_sleep>, <&lpass_lpi_i2s1_clk_sleep>,
 					<&lpass_lpi_i2s1_ws_sleep>, <&lpass_lpi_i2s1_data0_sleep>,
 					<&mi2s2_sclk_sleep>,
-					<&mi2s2_ws_sleep>, <&mi2s2_data1_sleep>;
+					<&mi2s2_ws_sleep>, <&mi2s2_data1_sleep>,
+					<&tof_5v_en_default>;
 		pinctrl-1 = <&mi2s0_data0>, <&mi2s0_data1>, <&mi2s0_mclk>,
 					<&mi2s0_sclk>, <&mi2s0_ws>,
 					<&lpass_ext_mas_clk1_a>, <&lpass_qua_mi2s_sclk>,
@@ -1265,6 +1266,18 @@
 		bias-disable;
 	};
 	*/
+
+	/* PFR: Force GPIO 105 (ToF_5V_EN on relay board) to output-low
+	 * at boot. Camera kernel module's power sequence sets this HIGH;
+	 * this pinctrl default keeps it LOW until explicitly driven.
+	 */
+	tof_5v_en_default: tof-5v-en-default-state {
+		pins = "gpio105";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-pull-down;
+		output-low;
+	};
 
         /*
 	mi2s2_data0: mi2s2-data0-state {
