@@ -10,6 +10,7 @@
 /dts-v1/;
 
 #include "turbox-c6490p-devkit.dtsi"
+#include "rubikpi3-display.dtsi"
 
 / {
 	model = "Thundercomm, Inc. RUBIK Pi 3";
@@ -20,8 +21,16 @@
 	qcom,board-id = <32 0xb>, <32 0x60b>;
 };
 
-&uart2 {
-	status = "okay";
+// &uart2 {
+// 	status = "okay";
+// };
+
+&uart6 {
+  status = "okay";
+};
+
+&uart8 {
+  status = "okay";
 };
 
 &i2c1 {
@@ -60,10 +69,19 @@
 };
 
 &spi12 {
-	status = "okay";
-	spidev@0 {
-		compatible = "qcom,spidev";
-		spi-max-frequency = <50000000>;
+        status = "okay";
+        icm42670: icm42670@0 {
+	        compatible = "invensense,icm42670";
 		reg = <0>;
-	};
+	        interrupt-parent = <&tlmm>;
+	        interrupts = <44 IRQ_TYPE_EDGE_RISING>;
+	        interrupt-names = "int1";
+	        vdd-supply = <&vreg_l4c_1p62>;
+	        vddio-supply = <&vreg_l5c_1p62>;
+	        pinctrl-names = "default";
+	        pinctrl-0 = <&gpio_44_pins>;
+	        spi-max-frequency = <5000000>;
+	        spi-cpha;
+	        spi-cpol;
+    };
 };

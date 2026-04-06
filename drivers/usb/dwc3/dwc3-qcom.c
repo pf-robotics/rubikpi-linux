@@ -21,12 +21,10 @@
 #include <linux/reset.h>
 #include <linux/suspend.h>
 #include <linux/iopoll.h>
+#include "../misc/qcom_eud.h"
 #include <linux/usb/hcd.h>
 #include <linux/usb.h>
-#include <linux/debugfs.h>
-#include <linux/seq_file.h>
 #include "core.h"
-#include "io.h"
 
 /* USB QSCRATCH Hardware registers */
 #define QSCRATCH_HS_PHY_CTRL			0x10
@@ -76,6 +74,10 @@ struct dwc3_qcom {
 	int			num_clocks;
 	struct reset_control	*resets;
 
+	/* VBUS regulator for host mode */
+	struct regulator	*vbus_reg;
+	bool			is_vbus_enabled;
+
 	int			hs_phy_irq;
 	int			dp_hs_phy_irq;
 	int			dm_hs_phy_irq;
@@ -98,7 +100,6 @@ struct dwc3_qcom {
 	bool			enable_rt;
 	enum usb_role		current_role;
 	struct notifier_block	xhci_nb;
-	struct regulator *vdda;
 
 	struct notifier_block	pm_notifier;
 };
@@ -456,6 +457,20 @@ static void dwc3_qcom_enable_interrupts(struct dwc3_qcom *qcom)
 	dwc3_qcom_enable_wakeup_irq(qcom->ss_phy_irq, 0);
 }
 
+static void dwc3_qcom_vbus_regulator_enable(struct dwc3_qcom *qcom, bool on)
+{
+	if (!qcom->vbus_reg)
+		return;
+
+	if (!qcom->is_vbus_enabled && on) {
+		regulator_enable(qcom->vbus_reg);
+		qcom->is_vbus_enabled = true;
+	} else if (qcom->is_vbus_enabled && !on) {
+		regulator_disable(qcom->vbus_reg);
+		qcom->is_vbus_enabled = false;
+	}
+}
+
 static int dwc3_qcom_suspend(struct dwc3_qcom *qcom, bool wakeup)
 {
 	u32 val;
@@ -760,7 +775,24 @@ static int dwc3_xhci_event_notifier(struct notifier_block *nb,
 static int dwc3_qcom_handle_cable_disconnect(void *data)
 {
 	struct dwc3_qcom *qcom = (struct dwc3_qcom *)data;
+	struct dwc3 *dwc = &qcom->dwc;
+	struct usb_role_switch *sw;
 	int ret = 0;
+
+	/*
+	 * HW sequence mandates a Vbus toggle to be performed during eud
+	 * enable/disable when in HS mode. If disconnect is issued in eud
+	 * Vbus OFF context process it only when in HS mode. USB enumeration
+	 * should remain undisturbed in other speeds.
+	 */
+	sw = usb_role_switch_get(dwc->dev);
+	if (IS_REACHABLE(CONFIG_USB_QCOM_EUD)) {
+		if (qcom_eud_vbus_control(sw) && dwc->speed != DWC3_DSTS_HIGHSPEED) {
+			usb_role_switch_put(sw);
+			return 0;
+		}
+	}
+	usb_role_switch_put(sw);
 
 	/*
 	 * If we are in device mode and get a cable disconnect,
@@ -774,6 +806,7 @@ static int dwc3_qcom_handle_cable_disconnect(void *data)
 		dwc3_qcom_vbus_override_enable(qcom, false);
 		pm_runtime_put_autosuspend(qcom->dev);
 	} else if (qcom->current_role == USB_ROLE_HOST) {
+		dwc3_qcom_vbus_regulator_enable(qcom, false);
 		usb_unregister_notify(&qcom->xhci_nb);
 	}
 
@@ -834,6 +867,7 @@ static void dwc3_qcom_handle_set_mode(void *data, u32 desired_dr_role)
 		qcom->xhci_nb.notifier_call = dwc3_xhci_event_notifier;
 		usb_register_notify(&qcom->xhci_nb);
 		qcom->current_role = USB_ROLE_HOST;
+		dwc3_qcom_vbus_regulator_enable(qcom, true);
 	}
 
 	pm_runtime_mark_last_busy(qcom->dev);
@@ -995,91 +1029,7 @@ static int dwc3_qcom_acpi_merge_urs_resources(struct platform_device *pdev)
 	return ret;
 }
 
-static int dwc3_mode_show(struct seq_file *s, void *unused)
-{
-	struct dwc3_qcom	*qcom = s->private;
-	struct dwc3		*dwc = &qcom->dwc;
-	unsigned long		flags;
-	u32			reg;
-	int			ret;
-
-	ret = pm_runtime_resume_and_get(dwc->dev);
-	if (ret < 0)
-		return ret;
-
-	spin_lock_irqsave(&dwc->lock, flags);
-	reg = dwc3_readl(dwc->regs, DWC3_GCTL);
-	spin_unlock_irqrestore(&dwc->lock, flags);
-
-	switch (DWC3_GCTL_PRTCAP(reg)) {
-	case DWC3_GCTL_PRTCAP_HOST:
-		seq_puts(s, "host\n");
-		break;
-	case DWC3_GCTL_PRTCAP_DEVICE:
-		seq_puts(s, "device\n");
-		break;
-	case DWC3_GCTL_PRTCAP_OTG:
-		seq_puts(s, "otg\n");
-		break;
-	default:
-		seq_printf(s, "UNKNOWN %08x\n", DWC3_GCTL_PRTCAP(reg));
-	}
-
-	pm_runtime_put_sync(dwc->dev);
-
-	return 0;
-
-}
-
-static int dwc3_mode_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, dwc3_mode_show, inode->i_private);
-}
-
-static ssize_t dwc3_qcom_usb2_0_mode_write(struct file *file,
-		const char __user *ubuf, size_t count, loff_t *ppos)
-{
-	struct seq_file		*s = file->private_data;
-	struct dwc3_qcom	*qcom = s->private;
-	struct dwc3		*dwc = &qcom->dwc;
-	u32			mode = 0;
-	char			buf[32];
-	int			ret;
-
-	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
-		return -EFAULT;
-
-	if (dwc->dr_mode != USB_DR_MODE_OTG)
-		return count;
-
-	if (!strncmp(buf, "host", 4)) {
-		ret = regulator_enable(qcom->vdda);
-		if (ret)
-			dev_err(qcom->dev, "cannot enable vdda regulator\n");
-		mode = DWC3_GCTL_PRTCAP_HOST;
-	}
-
-	if (!strncmp(buf, "device", 6)) {
-		ret = regulator_disable(qcom->vdda);
-		if (ret)
-			dev_err(qcom->dev, "cannot disable vdda regulator\n");
-		mode = DWC3_GCTL_PRTCAP_DEVICE;
-	}
-
-	dwc3_set_mode(dwc, mode);
-
-	return count;
-}
-
-static const struct file_operations dwc3_qcom_usb2_0_mode_fops = {
-	.open			= dwc3_mode_open,
-	.write			= dwc3_qcom_usb2_0_mode_write,
-	.read			= seq_read,
-	.llseek			= seq_lseek,
-	.release		= single_release,
-};
-
-static ssize_t dwc3_usb_sleep_enbale_show(struct device *dev,
+static ssize_t dwc3_usb_sleep_enable_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	struct dwc3_qcom *qcom = dev_get_drvdata(dev);
@@ -1087,7 +1037,7 @@ static ssize_t dwc3_usb_sleep_enbale_show(struct device *dev,
 	return scnprintf(buf, 2, "%d\n", (enable_usb_sleep)? 1 : 0);
 };
 
-static ssize_t dwc3_usb_sleep_enbale_store(struct device *dev,
+static ssize_t dwc3_usb_sleep_enable_store(struct device *dev,
 		struct device_attribute *attr, const char *buf,
 		size_t count)
 {
@@ -1118,10 +1068,10 @@ static ssize_t dwc3_usb_sleep_enbale_store(struct device *dev,
 
 }
 
-static DEVICE_ATTR_RW(dwc3_usb_sleep_enbale);
+static DEVICE_ATTR_RW(dwc3_usb_sleep_enable);
 
 static struct attribute *dwc3_attrs[] = {
-	&dev_attr_dwc3_usb_sleep_enbale.attr,
+	&dev_attr_dwc3_usb_sleep_enable.attr,
 	NULL,
 };
 
@@ -1133,6 +1083,24 @@ static const struct attribute_group *dwc3_attr_groups[] = {
 	&dwc3_attr_group,
 	NULL,
 };
+
+static void dwc3_qcom_vbus_regulator_get(struct dwc3_qcom *qcom)
+{
+	/*
+	 * The vbus_reg pointer could have multiple values
+	 * NULL: regulator_get() hasn't been called, or was previously deferred
+	 * IS_ERR: regulator could not be obtained, so skip using it
+	 * Valid pointer otherwise
+	 */
+	qcom->vbus_reg = devm_regulator_get_optional(qcom->dev,
+						"vbus_dwc3");
+	if (IS_ERR(qcom->vbus_reg)) {
+		dev_err(qcom->dev, "Unable to get vbus regulator err: %ld\n",
+							PTR_ERR(qcom->vbus_reg));
+		qcom->vbus_reg = NULL;
+		return;
+	}
+}
 
 static int dwc3_qcom_probe(struct platform_device *pdev)
 {
@@ -1149,11 +1117,6 @@ static int dwc3_qcom_probe(struct platform_device *pdev)
 	qcom = devm_kzalloc(&pdev->dev, sizeof(*qcom), GFP_KERNEL);
 	if (!qcom)
 		return -ENOMEM;
-
-	qcom->vdda = devm_regulator_get(&pdev->dev, "vdda");
-	ret = regulator_enable(qcom->vdda);
-	if (ret)
-		dev_err(&pdev->dev, "cannot enable vdda regulator\n");
 
 	legacy_binding = dwc3_qcom_has_separate_dwc3_of_node(dev);
 
@@ -1263,6 +1226,8 @@ static int dwc3_qcom_probe(struct platform_device *pdev)
 			qcom->current_role = USB_ROLE_NONE;
 	}
 
+	dwc3_qcom_vbus_regulator_get(qcom);
+
 	if (legacy_binding)
 		ret = dwc3_qcom_of_register_core(pdev);
 	else
@@ -1270,7 +1235,7 @@ static int dwc3_qcom_probe(struct platform_device *pdev)
 
 	if (ret) {
 		dev_err(dev, "failed to register DWC3 Core, err=%d\n", ret);
-		goto depopulate;
+		goto clk_disable;
 	}
 
 	ret = dwc3_qcom_interconnect_init(qcom);
@@ -1290,6 +1255,11 @@ static int dwc3_qcom_probe(struct platform_device *pdev)
 			goto interconnect_exit;
 	}
 
+	if (qcom->mode == USB_DR_MODE_HOST) {
+		dwc3_qcom_vbus_regulator_enable(qcom, true);
+		qcom->is_vbus_enabled = true;
+	}
+
 	wakeup_source = of_property_read_bool(dev->of_node, "wakeup-source");
 	device_init_wakeup(&pdev->dev, wakeup_source);
 
@@ -1300,12 +1270,6 @@ static int dwc3_qcom_probe(struct platform_device *pdev)
 		pm_runtime_set_active(dev);
 		pm_runtime_enable(dev);
 		pm_runtime_forbid(dev);
-	}
-
-	/*Create a special debugging file for mode switching of USBA2.0 port on RubikPi*/
-	if (!strncmp(dev_name(qcom->dwc.dev), "8c00000.usb", 11)) {
-		debugfs_create_file("qcom_usb2_0_mode", 0644, qcom->dwc.debug_root, qcom,
-					&dwc3_qcom_usb2_0_mode_fops);
 	}
 
 	// type c
