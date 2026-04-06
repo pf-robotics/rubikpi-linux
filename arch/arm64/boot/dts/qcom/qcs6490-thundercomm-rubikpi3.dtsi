@@ -1639,12 +1639,9 @@
 	};
 };
 
+/* i2c3 disabled: custom devcfg.mbn required for QUP access; TODO: fix devcfg */
 &i2c3 {
-	status = "ok";
-	max31760@50{
-		compatible = "adi,max31760";
-		reg = <0x50>;
-	};
+	status = "disabled";
 };
 
 &uart4 {
