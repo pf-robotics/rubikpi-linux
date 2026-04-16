@@ -233,6 +233,9 @@ static unsigned int qcom_geni_serial_get_mctrl(struct uart_port *uport)
 
 	if (uart_console(uport)) {
 		mctrl |= TIOCM_CTS;
+	} else if (!port->setup) {
+		/* Return safe defaults if port hasn't been setup yet */
+		mctrl |= TIOCM_CTS;
 	} else {
 		geni_ios = readl(uport->membase + SE_GENI_IOS);
 		if (!(geni_ios & IO2_DATA_IN) || port->loopback)
@@ -251,6 +254,10 @@ static void qcom_geni_serial_set_mctrl(struct uart_port *uport,
 	struct qcom_geni_serial_port *port = to_dev_port(uport);
 
 	if (uart_console(uport))
+		return;
+
+	/* Don't access hardware if port hasn't been setup yet */
+	if (!port->setup)
 		return;
 
 	if (mctrl & TIOCM_LOOP)
