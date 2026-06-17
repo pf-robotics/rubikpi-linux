@@ -1526,7 +1526,7 @@
 		enable-active-high;
 		regulator-always-on;
 	};
-
+	/*
 	forty_pin_enable_vreg: forty_pin_enable_vreg {
 		compatible = "regulator-fixed";
 		regulator-name = "forty_pin_enable_vreg";
@@ -1536,6 +1536,7 @@
 		enable-active-high;
 		regulator-always-on;
 	};
+	*/
 };
 
 &i2c0 {
