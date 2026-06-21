@@ -1620,6 +1620,12 @@
 	};
 };
 
+&i2c3 {
+	status = "ok";
+	// ref: sc7280.dtsi, qup_i2c3_data_clk
+	// for PWM fan ctrl
+};
+
 &i2c15 {
 	status = "ok";
 	husb238@8 {
