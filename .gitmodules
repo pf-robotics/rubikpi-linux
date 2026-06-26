@@ -26,3 +26,6 @@
 [submodule "arch/arm64/boot/dts/qcom/video-devicetree"]
 	path = arch/arm64/boot/dts/qcom/video-devicetree
 	url = https://git.codelinaro.org/clo/le/platform/vendor/opensource/video-devicetree.git
+[submodule "techpack/camera-kernel"]
+	path = techpack/camera-kernel
+	url = https://git.codelinaro.org/clo/le/platform/vendor/opensource/camera-kernel.git
