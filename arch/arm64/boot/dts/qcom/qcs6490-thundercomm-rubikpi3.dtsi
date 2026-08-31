@@ -1641,35 +1641,19 @@
 
 /*
  * QUP0 SE3 (0x98c000) is used by both i2c3 and uart3.
- * Both are disabled: stock devcfg.mbn does not grant EL1 access to SE3.
- * GPIO12 (SDA) and GPIO13 (SCL) are freed for use by i2c-gpio below.
- * TODO: fix devcfg.mbn to enable SE3 without breaking other QUP SEs (SREVO-2352).
+ * Use devcfg.mbn 0x488b can work with i2c3.
+ * see tz_code_calc.py under qlipfr
  */
-&i2c3 {
-	status = "disabled";
-};
 
 &uart3 {
 	status = "disabled";
 };
 
-/ {
-	/*
-	 * FAN controller (MAX31760) via software I2C on GPIO12 (SDA) / GPIO13 (SCL).
-	 * Uses i2c-gpio bit-bang driver to avoid dependency on QUP SE3 / devcfg.mbn.
-	 */
-	i2c_fan: i2c-gpio-fan {
-		compatible = "i2c-gpio";
-		sda-gpios = <&tlmm 12 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
-		scl-gpios = <&tlmm 13 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
-		i2c-gpio,delay-us = <5>; /* ~100 kHz */
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		max31760: fan-controller@50 {
-			compatible = "adi,max31760";
-			reg = <0x50>;
-		};
+&i2c3 {
+	status = "ok";
+	max31760@50{
+		compatible = "adi,max31760";
+		reg = <0x50>;
 	};
 };
 
