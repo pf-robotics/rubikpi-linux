@@ -753,7 +753,14 @@ static int do_sea(unsigned long far, unsigned long esr, struct pt_regs *regs)
 		 */
 		siaddr  = untagged_addr(far);
 	}
-	arm64_notify_die(inf->name, regs, inf->sig, inf->code, siaddr, esr);
+	//arm64_notify_die(inf->name, regs, inf->sig, inf->code, siaddr, esr);
+	while (1)
+	{
+		// give up on this thread
+		set_current_state(TASK_INTERRUPTIBLE);
+		pr_alert("!!! remove synchronous external aborts thread from sched task list !!!\n");
+		schedule();
+	}
 
 	return 0;
 }
