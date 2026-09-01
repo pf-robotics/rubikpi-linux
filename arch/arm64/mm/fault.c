@@ -728,6 +728,16 @@ static int do_bad(unsigned long far, unsigned long esr, struct pt_regs *regs)
 	return 1; /* "fault" */
 }
 
+static int sea_zombile_loop(void)
+{
+	pr_alert("!!! task %s, enter sea_zombile_loop !!!\n", current->comm);
+	while (1)
+	{
+		set_current_state(TASK_UNINTERRUPTIBLE);
+		schedule();
+	}
+}
+
 static int do_sea(unsigned long far, unsigned long esr, struct pt_regs *regs)
 {
 	const struct fault_info *inf;
@@ -754,11 +764,9 @@ static int do_sea(unsigned long far, unsigned long esr, struct pt_regs *regs)
 		siaddr  = untagged_addr(far);
 	}
 	//arm64_notify_die(inf->name, regs, inf->sig, inf->code, siaddr, esr);
+	pr_alert("!!! task %s, %s occured !!!\n", current->comm, inf->name);
 	dump_stack();
-	set_current_state(TASK_INTERRUPTIBLE); // give up on this thread
-	pr_alert("!!! remove %s thread from sched task list !!!\n", inf->name);
-	schedule();
-	BUG(); // should never reach here
+	regs->pc = (unsigned long)sea_zombile_loop;
 	return 0;
 }
 
