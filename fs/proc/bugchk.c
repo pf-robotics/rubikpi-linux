@@ -9,7 +9,7 @@
 static DEFINE_SPINLOCK(bugchk_info_lock);
 
 #define MAX_LOG_LENGTH 64
-bugchk_info_t bugchk_info_list[MAX_LOG_LENGTH];
+static bugchk_info_t bugchk_info_list[MAX_LOG_LENGTH];
 static u64 bugchk_i = 0;
 
 void log_bugchk_info(const char *fault_type, u64 pid, const char *task_name)
