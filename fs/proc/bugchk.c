@@ -12,7 +12,7 @@ static DEFINE_SPINLOCK(bugchk_info_lock);
 static bugchk_info_t bugchk_info_list[MAX_LOG_LENGTH];
 static u64 bugchk_i = 0;
 
-void log_bugchk_info(const char *fault_type, u64 pid, const char *task_name)
+void log_bugchk_info(const char *fault_type, pid_t pid, const char *task_name)
 {
 	spin_lock(&bugchk_info_lock);
 	if (bugchk_i > MAX_LOG_LENGTH - 1)
