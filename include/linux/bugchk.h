@@ -2,12 +2,11 @@
 #define BUGCHK_HEADER_H
 
 typedef struct bugchk_info {
-    u8 kernel_bug;
     char fault_type[32];
-    pid_t pid;
+    u64 pid;
     char task_name[32];
 } bugchk_info_t;
 
-extern bugchk_info_t global_bugchk_info;
+void log_bugchk_info(const char *fault_type, u64 pid, const char *task_name);
 
 #endif

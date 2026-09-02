@@ -768,10 +768,7 @@ static int do_sea(unsigned long far, unsigned long esr, struct pt_regs *regs)
 	pr_alert("!!! task %s, %s occured !!!\n", current->comm, inf->name);
 	dump_stack();
 
-	global_bugchk_info.kernel_bug = 1;
-	strlcpy(global_bugchk_info.fault_type, inf->name, sizeof(global_bugchk_info.fault_type));
-	global_bugchk_info.pid = current->pid;
-	strlcpy(global_bugchk_info.task_name, current->comm, sizeof(global_bugchk_info.task_name));
+	log_bugchk_info(inf->name, current->pid, current->comm);
 
 	regs->pc = (unsigned long)sea_zombile_loop;
 	return 0;
