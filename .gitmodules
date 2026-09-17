@@ -4,6 +4,7 @@
 [submodule "arch/arm64/boot/dts/thundercomm"]
 	path = arch/arm64/boot/dts/thundercomm
 	url = git@github.com:pf-robotics/rubikpi-device-tree.git
+	branch = 0327_setaku_tof
 [submodule "techpack/display"]
 	path = techpack/display
 	url = https://github.com/rubikpi-ai/display-drivers.git
@@ -25,6 +26,3 @@
 [submodule "arch/arm64/boot/dts/qcom/video-devicetree"]
 	path = arch/arm64/boot/dts/qcom/video-devicetree
 	url = https://git.codelinaro.org/clo/le/platform/vendor/opensource/video-devicetree.git
-[submodule "techpack/camera-kernel"]
-	path = techpack/camera-kernel
-	url = https://git.codelinaro.org/clo/le/platform/vendor/opensource/camera-kernel.git

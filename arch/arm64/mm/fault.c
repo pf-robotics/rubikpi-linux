@@ -25,6 +25,7 @@
 #include <linux/perf_event.h>
 #include <linux/preempt.h>
 #include <linux/hugetlb.h>
+#include <linux/bugchk.h>
 
 #include <asm/acpi.h>
 #include <asm/bug.h>
@@ -728,6 +729,16 @@ static int do_bad(unsigned long far, unsigned long esr, struct pt_regs *regs)
 	return 1; /* "fault" */
 }
 
+static int sea_zombile_loop(void)
+{
+	pr_alert("!!! task %s, enter sea_zombile_loop !!!\n", current->comm);
+	while (1)
+	{
+		set_current_state(TASK_UNINTERRUPTIBLE);
+		schedule();
+	}
+}
+
 static int do_sea(unsigned long far, unsigned long esr, struct pt_regs *regs)
 {
 	const struct fault_info *inf;
@@ -753,8 +764,13 @@ static int do_sea(unsigned long far, unsigned long esr, struct pt_regs *regs)
 		 */
 		siaddr  = untagged_addr(far);
 	}
-	arm64_notify_die(inf->name, regs, inf->sig, inf->code, siaddr, esr);
+	//arm64_notify_die(inf->name, regs, inf->sig, inf->code, siaddr, esr);
+	pr_alert("!!! task %s, %s occured !!!\n", current->comm, inf->name);
+	dump_stack();
 
+	log_bugchk_info(inf->name, current->pid, current->comm);
+
+	regs->pc = (unsigned long)sea_zombile_loop;
 	return 0;
 }
 
