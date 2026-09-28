@@ -1266,7 +1266,9 @@ static int lt9611_probe(struct i2c_client *client)
 	if (ret)
 		goto err_of_put;
 
-	lt9611_reset(lt9611);
+	// the chip already power cycled on boot, no need to reset it
+	// keep the UEFI GOP mode to prevent screen shutdown
+	// lt9611_reset(lt9611);
 
 	ret = lt9611_read_device_rev(lt9611);
 	if (ret) {
