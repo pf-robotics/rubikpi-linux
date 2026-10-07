@@ -145,6 +145,7 @@ struct qcom_geni_serial_port {
 	dma_addr_t tx_dma_addr;
 	dma_addr_t rx_dma_addr;
 	bool setup;
+	u32 rx_stale_bits;
 	unsigned long poll_timeout_us;
 	unsigned long clk_rate;
 	void *rx_buf;
@@ -1181,7 +1182,6 @@ static void qcom_geni_serial_shutdown(struct uart_port *uport)
 static int qcom_geni_serial_port_setup(struct uart_port *uport)
 {
 	struct qcom_geni_serial_port *port = to_dev_port(uport);
-	u32 rxstale = DEFAULT_BITS_PER_CHAR * STALE_TIMEOUT;
 	u32 proto;
 	u32 pin_swap;
 	int ret;
@@ -1203,7 +1203,7 @@ static int qcom_geni_serial_port_setup(struct uart_port *uport)
 	if (ret)
 		return ret;
 
-	writel(rxstale, uport->membase + SE_UART_RX_STALE_CNT);
+	writel(port->rx_stale_bits, uport->membase + SE_UART_RX_STALE_CNT);
 
 	pin_swap = readl(uport->membase + SE_UART_IO_MACRO_CTRL);
 	if (port->rx_tx_swap) {
@@ -1243,6 +1243,8 @@ static int qcom_geni_serial_startup(struct uart_port *uport)
 		if (ret)
 			return ret;
 	}
+	/* port_setup() runs once, so reapply a value changed while closed. */
+	writel(port->rx_stale_bits, uport->membase + SE_UART_RX_STALE_CNT);
 	enable_irq(uport->irq);
 
 	return 0;
@@ -1693,6 +1695,63 @@ static const struct uart_ops qcom_geni_uart_pops = {
 	.pm = qcom_geni_serial_pm,
 };
 
+/* Idle bit times before RX DMA completes; longer values batch bursty input. */
+static ssize_t rx_stale_bits_show(struct device *dev,
+				  struct device_attribute *attr, char *buf)
+{
+	struct tty_port *tport = dev_get_drvdata(dev);
+	struct uart_state *state = container_of(tport, struct uart_state, port);
+	u32 val = 0;
+
+	mutex_lock(&tport->mutex);
+	if (state->uart_port)
+		val = to_dev_port(state->uart_port)->rx_stale_bits;
+	mutex_unlock(&tport->mutex);
+
+	return sysfs_emit(buf, "%u\n", val);
+}
+
+static ssize_t rx_stale_bits_store(struct device *dev,
+				   struct device_attribute *attr,
+				   const char *buf, size_t count)
+{
+	struct tty_port *tport = dev_get_drvdata(dev);
+	struct uart_state *state = container_of(tport, struct uart_state, port);
+	struct qcom_geni_serial_port *port;
+	u32 val;
+	int ret;
+
+	ret = kstrtou32(buf, 0, &val);
+	if (ret)
+		return ret;
+	if (!val || val > RX_STALE_CNT)
+		return -EINVAL;
+
+	mutex_lock(&tport->mutex);
+	if (!state->uart_port) {
+		mutex_unlock(&tport->mutex);
+		return -ENODEV;
+	}
+	port = to_dev_port(state->uart_port);
+	port->rx_stale_bits = val;
+	/* Registers are only accessible while the SE resources are on. */
+	if (port->setup && state->pm_state == UART_PM_STATE_ON)
+		writel(val, port->uport.membase + SE_UART_RX_STALE_CNT);
+	mutex_unlock(&tport->mutex);
+
+	return count;
+}
+static DEVICE_ATTR_RW(rx_stale_bits);
+
+static struct attribute *qcom_geni_serial_attrs[] = {
+	&dev_attr_rx_stale_bits.attr,
+	NULL,
+};
+
+static struct attribute_group qcom_geni_serial_attr_group = {
+	.attrs = qcom_geni_serial_attrs,
+};
+
 static int qcom_geni_serial_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -1754,6 +1813,7 @@ static int qcom_geni_serial_probe(struct platform_device *pdev)
 	port->tx_fifo_depth = DEF_FIFO_DEPTH_WORDS;
 	port->rx_fifo_depth = DEF_FIFO_DEPTH_WORDS;
 	port->tx_fifo_width = DEF_FIFO_WIDTH_BITS;
+	port->rx_stale_bits = DEFAULT_BITS_PER_CHAR * STALE_TIMEOUT;
 
 	if (!data->console) {
 		port->rx_buf = devm_kzalloc(uport->dev,
@@ -1821,6 +1881,9 @@ static int qcom_geni_serial_probe(struct platform_device *pdev)
 		dev_err(uport->dev, "Failed to get rs485 mode %d\n", ret);
 		return ret;
 	}
+
+	if (!data->console)
+		uport->attr_group = &qcom_geni_serial_attr_group;
 
 	ret = uart_add_one_port(drv, uport);
 	if (ret)
