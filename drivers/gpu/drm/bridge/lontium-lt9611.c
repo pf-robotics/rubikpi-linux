@@ -7,12 +7,14 @@
 #include <linux/gpio/consumer.h>
 #include <linux/i2c.h>
 #include <linux/interrupt.h>
+#include <linux/jiffies.h>
 #include <linux/media-bus-format.h>
 #include <linux/module.h>
 #include <linux/of_graph.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
+#include <linux/workqueue.h>
 
 #include <sound/hdmi-codec.h>
 
@@ -30,6 +32,10 @@
 #define DDC_NO_ACK	0x50
 
 #define LT9611_4LANES	0
+
+#define LT9611_INPUT_CHECK_INTERVAL_MS	20
+#define LT9611_INPUT_TIMEOUT_MS		5000
+#define LT9611_INPUT_STABLE_CHECKS	2
 
 struct lt9611 {
 	struct device *dev;
@@ -51,6 +57,13 @@ struct lt9611 {
 
 	bool power_on;
 	bool sleep;
+	struct delayed_work hdmi_enable_work;
+	unsigned int input_hdisplay;
+	unsigned int input_vdisplay;
+	unsigned int input_vtotal;
+	unsigned int input_stable_count;
+	unsigned int input_first_delay;
+	unsigned long input_check_start;
 
 	struct regulator_bulk_data supplies[2];
 
@@ -389,6 +402,112 @@ static int lt9611_video_check(struct lt9611 *lt9611)
 end:
 	dev_err(lt9611->dev, "read video check error\n");
 	return temp;
+}
+
+static bool lt9611_input_matches_mode(struct lt9611 *lt9611)
+{
+	int hactive_a, hactive_b = 0, vactive, vtotal;
+
+	vactive = lt9611_read_video_check(lt9611, 0x8282);
+	vtotal = lt9611_read_video_check(lt9611, 0x826c);
+	hactive_a = lt9611_read_video_check(lt9611, 0x8382);
+	if (lt9611->dsi1_node)
+		hactive_b = lt9611_read_video_check(lt9611, 0x8386);
+
+	if (vactive < 0 || vtotal < 0 || hactive_a < 0 || hactive_b < 0)
+		return false;
+
+	if (!hactive_a || (lt9611->dsi1_node && !hactive_b))
+		return false;
+
+	return hactive_a + hactive_b == lt9611->input_hdisplay * 3 &&
+		vactive == lt9611->input_vdisplay &&
+		vtotal == lt9611->input_vtotal;
+}
+
+struct lt9611_input_status {
+	unsigned int pll;
+	unsigned int pcr;
+	unsigned int first_delay;
+	unsigned int pcr_delay;
+};
+
+static int lt9611_read_input_status(struct lt9611 *lt9611,
+				    struct lt9611_input_status *status)
+{
+	int first_delay, pcr_delay, ret;
+
+	ret = regmap_read(lt9611->regmap, 0x8215, &status->pll);
+	if (ret)
+		return ret;
+
+	ret = regmap_read(lt9611->regmap, 0x8397, &status->pcr);
+	if (ret)
+		return ret;
+
+	first_delay = lt9611_read_video_check(lt9611, 0x83b8);
+	if (first_delay < 0)
+		return first_delay;
+
+	pcr_delay = lt9611_read_video_check(lt9611, 0x83ba);
+	if (pcr_delay < 0)
+		return pcr_delay;
+
+	status->first_delay = first_delay;
+	status->pcr_delay = pcr_delay;
+
+	return 0;
+}
+
+static void lt9611_hdmi_enable_work(struct work_struct *work)
+{
+	struct lt9611 *lt9611 = container_of(to_delayed_work(work),
+					   struct lt9611, hdmi_enable_work);
+	struct lt9611_input_status status = {};
+	unsigned int elapsed_ms;
+	bool mode_matches;
+	int ret;
+
+	mode_matches = lt9611_input_matches_mode(lt9611);
+	ret = lt9611_read_input_status(lt9611, &status);
+	if (!ret && mode_matches && (status.pll & BIT(7)) &&
+	    (status.pcr & BIT(4)) && status.first_delay && status.pcr_delay) {
+		if (status.first_delay == lt9611->input_first_delay)
+			lt9611->input_stable_count++;
+		else
+			lt9611->input_stable_count = 1;
+		lt9611->input_first_delay = status.first_delay;
+	} else {
+		lt9611->input_stable_count = 0;
+		lt9611->input_first_delay = 0;
+	}
+
+	elapsed_ms = jiffies_to_msecs(jiffies - lt9611->input_check_start);
+	if (lt9611->input_stable_count < LT9611_INPUT_STABLE_CHECKS) {
+		if (time_before(jiffies, lt9611->input_check_start +
+				msecs_to_jiffies(LT9611_INPUT_TIMEOUT_MS))) {
+			schedule_delayed_work(&lt9611->hdmi_enable_work,
+					      msecs_to_jiffies(LT9611_INPUT_CHECK_INTERVAL_MS));
+			return;
+		}
+
+		/* Keep a bounded fallback for inputs that never report ready. */
+		dev_warn(lt9611->dev,
+			 "input link timeout for %ux%u after %u ms: mode_match=%u status_ret=%d pll=%02x pcr=%02x first_delay=%u pcr_delay=%u; enabling HDMI fallback\n",
+			 lt9611->input_hdisplay, lt9611->input_vdisplay,
+			 elapsed_ms, mode_matches,
+			 ret, status.pll, status.pcr, status.first_delay,
+			 status.pcr_delay);
+	} else {
+		dev_info(lt9611->dev,
+			 "input video and PLL/PCR ready for %ux%u after %u ms; enabling HDMI\n",
+			 lt9611->input_hdisplay, lt9611->input_vdisplay,
+			 elapsed_ms);
+	}
+
+	ret = regmap_write(lt9611->regmap, 0x8130, 0xea);
+	if (ret)
+		dev_err(lt9611->dev, "failed to enable HDMI output: %d\n", ret);
 }
 
 static void lt9611_hdmi_set_infoframes(struct lt9611 *lt9611,
@@ -831,6 +950,9 @@ lt9611_bridge_atomic_enable(struct drm_bridge *bridge,
 	struct drm_crtc_state *crtc_state;
 	struct drm_display_mode *mode;
 	unsigned int postdiv;
+	int ret;
+
+	cancel_delayed_work_sync(&lt9611->hdmi_enable_work);
 
 	connector = drm_atomic_get_new_connector_for_encoder(state, bridge->encoder);
 	if (WARN_ON(!connector))
@@ -845,6 +967,13 @@ lt9611_bridge_atomic_enable(struct drm_bridge *bridge,
 		return;
 
 	mode = &crtc_state->adjusted_mode;
+
+	/* Mute both initial startup and later modesets before configuration. */
+	ret = regmap_write(lt9611->regmap, 0x8130, 0x6a);
+	if (ret) {
+		dev_err(lt9611->dev, "failed to disable HDMI output: %d\n", ret);
+		return;
+	}
 
 	lt9611_mipi_input_digital(lt9611, mode);
 	lt9611_pll_setup(lt9611, mode, &postdiv);
@@ -865,8 +994,21 @@ lt9611_bridge_atomic_enable(struct drm_bridge *bridge,
 
 	lt9611_video_check(lt9611);
 
-	/* Enable HDMI output */
-	regmap_write(lt9611->regmap, 0x8130, 0xea);
+	lt9611->input_hdisplay = mode->hdisplay;
+	lt9611->input_vdisplay = mode->vdisplay;
+	lt9611->input_vtotal = mode->vtotal;
+	lt9611->input_stable_count = 0;
+	lt9611->input_first_delay = 0;
+	lt9611->input_check_start = jiffies;
+
+	/*
+	 * The DPU starts scanout after atomic_enable returns. Waiting for input
+	 * here would prevent the first frame from being submitted. Check it in
+	 * a worker, enabling TMDS after two stable input/status samples or a
+	 * bounded timeout. The first-packet delay must also remain unchanged.
+	 */
+	schedule_delayed_work(&lt9611->hdmi_enable_work,
+			      msecs_to_jiffies(LT9611_INPUT_CHECK_INTERVAL_MS));
 }
 
 static void
@@ -875,6 +1017,9 @@ lt9611_bridge_atomic_disable(struct drm_bridge *bridge,
 {
 	struct lt9611 *lt9611 = bridge_to_lt9611(bridge);
 	int ret;
+
+	/* Do not allow a queued enable to race with power-off or sleep. */
+	cancel_delayed_work_sync(&lt9611->hdmi_enable_work);
 
 	/* Disable HDMI output */
 	ret = regmap_write(lt9611->regmap, 0x8130, 0x6a);
@@ -966,7 +1111,7 @@ static void lt9611_bridge_atomic_pre_enable(struct drm_bridge *bridge,
 	static const struct reg_sequence reg_cfg[] = {
 		{ 0x8102, 0x12 },
 		{ 0x8123, 0x40 },
-		{ 0x8130, 0xea },
+		{ 0x8130, 0x6a }, /* Keep HDMI output disabled during setup. */
 		{ 0x8011, 0xfa },
 	};
 
@@ -1239,6 +1384,7 @@ static int lt9611_probe(struct i2c_client *client)
 	lt9611->dev = dev;
 	lt9611->client = client;
 	lt9611->sleep = false;
+	INIT_DELAYED_WORK(&lt9611->hdmi_enable_work, lt9611_hdmi_enable_work);
 
 	lt9611->regmap = devm_regmap_init_i2c(client, &lt9611_regmap_config);
 	if (IS_ERR(lt9611->regmap)) {
@@ -1320,6 +1466,7 @@ err_remove_bridge:
 	drm_bridge_remove(&lt9611->bridge);
 
 err_disable_regulators:
+	cancel_delayed_work_sync(&lt9611->hdmi_enable_work);
 	regulator_bulk_disable(ARRAY_SIZE(lt9611->supplies), lt9611->supplies);
 
 err_of_put:
@@ -1336,6 +1483,7 @@ static void lt9611_remove(struct i2c_client *client)
 	disable_irq(client->irq);
 	lt9611_audio_exit(lt9611);
 	drm_bridge_remove(&lt9611->bridge);
+	cancel_delayed_work_sync(&lt9611->hdmi_enable_work);
 
 	regulator_bulk_disable(ARRAY_SIZE(lt9611->supplies), lt9611->supplies);
 
