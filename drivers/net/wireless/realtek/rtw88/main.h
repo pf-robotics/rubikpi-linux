@@ -42,6 +42,7 @@
 
 extern bool rtw_bf_support;
 extern bool rtw_disable_lps_deep_mode;
+extern bool rtw_disable_ips;
 extern unsigned int rtw_debug_mask;
 extern bool rtw_edcca_enabled;
 extern const struct ieee80211_ops rtw_ops;
