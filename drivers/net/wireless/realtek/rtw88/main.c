@@ -22,6 +22,7 @@
 
 bool rtw_disable_lps_deep_mode;
 EXPORT_SYMBOL(rtw_disable_lps_deep_mode);
+bool rtw_disable_ips;
 bool rtw_bf_support = true;
 unsigned int rtw_debug_mask;
 EXPORT_SYMBOL(rtw_debug_mask);
@@ -39,6 +40,8 @@ module_param_named(support_bf, rtw_bf_support, bool, 0644);
 module_param_named(debug_mask, rtw_debug_mask, uint, 0644);
 
 MODULE_PARM_DESC(disable_lps_deep, "Set Y to disable Deep PS");
+module_param_named(disable_ips, rtw_disable_ips, bool, 0644);
+MODULE_PARM_DESC(disable_ips, "Set Y to disable inactive power save (IPS). Leaving IPS powers the chip on and reloads the BB/RF tables, which takes over 1 s on USB devices and is done on every reconnect or roam");
 MODULE_PARM_DESC(support_bf, "Set Y to enable beamformee support");
 MODULE_PARM_DESC(debug_mask, "Debugging mask");
 
@@ -302,7 +305,7 @@ static void rtw_ips_work(struct work_struct *work)
 	struct rtw_dev *rtwdev = container_of(work, struct rtw_dev, ips_work);
 
 	mutex_lock(&rtwdev->mutex);
-	if (rtwdev->hw->conf.flags & IEEE80211_CONF_IDLE)
+	if ((rtwdev->hw->conf.flags & IEEE80211_CONF_IDLE) && !rtw_disable_ips)
 		rtw_enter_ips(rtwdev);
 	mutex_unlock(&rtwdev->mutex);
 }
